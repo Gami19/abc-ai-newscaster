@@ -431,7 +431,3 @@ OpenAI / Azure OpenAI / Amazon Bedrock を切り替えられる。
 | [提案資料 PDF](./docs/proposal.pdf) | イベント施策コンセプト・体験フロー・アーキテクチャ設計 |
 
 ---
-
-## 📝 ライセンス
-
-MIT
