@@ -1,7 +1,9 @@
+import OpenAI from "openai";
 import { NextResponse } from "next/server";
 
+import { generateScript } from "@/lib/ai";
 import { validateGenerateBody } from "@/lib/validation/userInput";
-import type { ApiErrorResponse } from "@/types";
+import type { ApiErrorResponse, GenerateScriptOutput } from "@/types";
 
 export async function POST(request: Request) {
   try {
@@ -15,15 +17,22 @@ export async function POST(request: Request) {
       );
     }
 
-    // TODO: Day 2 - lib/ai/index.ts generateScript()
+    const script = await generateScript(result.data);
+
+    return NextResponse.json<GenerateScriptOutput>({ script });
+  } catch (error) {
+    if (error instanceof OpenAI.APIError && error.status === 429) {
+      return NextResponse.json<ApiErrorResponse>(
+        { error: "リクエストが多すぎます。しばらく待ってからもう一度お試しください" },
+        { status: 429 }
+      );
+    }
+
+    console.error("[api/generate]", error);
+
     return NextResponse.json<ApiErrorResponse>(
-      { error: "原稿生成は未実装です" },
-      { status: 501 }
-    );
-  } catch {
-    return NextResponse.json<ApiErrorResponse>(
-      { error: "入力値が不正です" },
-      { status: 400 }
+      { error: "原稿の生成に失敗しました" },
+      { status: 500 }
     );
   }
 }
