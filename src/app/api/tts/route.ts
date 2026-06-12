@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { synthesizeSpeech } from "@/lib/tts/voicetext";
 import { validateTtsBody } from "@/lib/validation/userInput";
 import type { ApiErrorResponse } from "@/types";
 
@@ -15,15 +16,17 @@ export async function POST(request: Request) {
       );
     }
 
-    // TODO: Day 2 - lib/tts/index.ts synthesizeSpeech()
+    const audioBuffer = await synthesizeSpeech(result.data.text);
+
+    return new Response(audioBuffer, {
+      headers: { "Content-Type": "audio/wav" },
+    });
+  } catch (error) {
+    console.error("[api/tts]", error);
+
     return NextResponse.json<ApiErrorResponse>(
-      { error: "音声合成は未実装です" },
-      { status: 501 }
-    );
-  } catch {
-    return NextResponse.json<ApiErrorResponse>(
-      { error: "テキストが空です" },
-      { status: 400 }
+      { error: "音声生成に失敗しました" },
+      { status: 500 }
     );
   }
 }

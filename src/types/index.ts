@@ -7,6 +7,18 @@ export type UserInput = {
 
 export type GenerateRequestBody = UserInput;
 
+export type GenerateScriptInput = UserInput;
+
+export type GenerateScriptOutput = {
+  script: string;
+};
+
+export type AIProvider = "openai" | "azure" | "bedrock";
+
+export type AIProviderInterface = {
+  generateScript(input: GenerateScriptInput): Promise<string>;
+};
+
 export type TtsRequestBody = {
   text: string;
 };
