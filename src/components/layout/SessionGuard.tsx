@@ -3,7 +3,7 @@
 import { useEffect, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 
-import { useSessionStore } from "@/lib/store/useSessionStore";
+import { isResultReady, useSessionStore } from "@/lib/store/useSessionStore";
 import type { SessionGuardField } from "@/types";
 
 type SessionGuardProps = {
@@ -11,25 +11,26 @@ type SessionGuardProps = {
   children: ReactNode;
 };
 
-function useGuardValue(require: SessionGuardField) {
+function useGuardAllowed(require: SessionGuardField): boolean {
   return useSessionStore((state) => {
     switch (require) {
       case "userInput":
-        return state.userInput;
+        return state.userInput !== null;
       case "photoBase64":
-        return state.photoBase64;
+        return state.photoBase64 !== null;
       case "scriptText":
-        return state.scriptText;
+        return state.scriptText !== null;
       case "videoBlob":
-        return state.videoBlob;
+        return state.videoBlob !== null;
+      case "resultReady":
+        return isResultReady(state);
     }
   });
 }
 
 export function SessionGuard({ require, children }: SessionGuardProps) {
   const router = useRouter();
-  const value = useGuardValue(require);
-  const isAllowed = value !== null;
+  const isAllowed = useGuardAllowed(require);
 
   useEffect(() => {
     if (!isAllowed) {
