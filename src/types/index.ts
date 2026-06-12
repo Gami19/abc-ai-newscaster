@@ -19,6 +19,17 @@ export type AIProviderInterface = {
   generateScript(input: GenerateScriptInput): Promise<string>;
 };
 
+export type TtsProvider = "openai" | "azure";
+
+export type TtsSynthesisResult = {
+  audio: ArrayBuffer;
+  contentType: string;
+};
+
+export type TtsProviderInterface = {
+  synthesizeSpeech(text: string): Promise<TtsSynthesisResult>;
+};
+
 export type TtsRequestBody = {
   text: string;
 };

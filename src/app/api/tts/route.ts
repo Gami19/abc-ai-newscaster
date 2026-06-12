@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { synthesizeSpeech } from "@/lib/tts/voicetext";
+import { synthesizeSpeech } from "@/lib/tts";
 import { validateTtsBody } from "@/lib/validation/userInput";
 import type { ApiErrorResponse } from "@/types";
 
@@ -16,10 +16,10 @@ export async function POST(request: Request) {
       );
     }
 
-    const audioBuffer = await synthesizeSpeech(result.data.text);
+    const { audio, contentType } = await synthesizeSpeech(result.data.text);
 
-    return new Response(audioBuffer, {
-      headers: { "Content-Type": "audio/wav" },
+    return new Response(audio, {
+      headers: { "Content-Type": contentType },
     });
   } catch (error) {
     console.error("[api/tts]", error);
