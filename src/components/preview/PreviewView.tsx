@@ -1,14 +1,24 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 
 import {
   NewsCanvas,
   type NewsCanvasHandle,
 } from "@/components/canvas/NewsCanvas";
+import { AudioVisualizer } from "@/components/preview/AudioVisualizer";
+import { BroadcastCountdownOverlay } from "@/components/preview/BroadcastCountdownOverlay";
+import { BroadcastEndOverlay } from "@/components/preview/BroadcastEndOverlay";
+import { BroadcastStartPanel } from "@/components/preview/BroadcastStartPanel";
+import { KaraokeScript } from "@/components/preview/KaraokeScript";
+import { NewsTicker } from "@/components/preview/NewsTicker";
+import { OnAirHeader } from "@/components/preview/OnAirHeader";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
+import { useBroadcastExperience } from "@/hooks/useBroadcastExperience";
+import { buildTickerText } from "@/lib/karaoke/tickerMessages";
+import { cn } from "@/lib/utils";
 import { generateVideo } from "@/lib/video";
 import { useSessionStore } from "@/lib/store/useSessionStore";
 
@@ -17,21 +27,46 @@ export function PreviewView() {
   const scriptText = useSessionStore((s) => s.scriptText);
   const audioBlob = useSessionStore((s) => s.audioBlob);
   const photoBase64 = useSessionStore((s) => s.photoBase64);
+  const userInput = useSessionStore((s) => s.userInput);
   const setCanvasImage = useSessionStore((s) => s.setCanvasImage);
   const setVideo = useSessionStore((s) => s.setVideo);
   const setVideoMode = useSessionStore((s) => s.setVideoMode);
   const setBlobUrl = useSessionStore((s) => s.setBlobUrl);
+  const setBroadcastPhase = useSessionStore((s) => s.setBroadcastPhase);
+  const setHighlightIndex = useSessionStore((s) => s.setHighlightIndex);
 
   const canvasRef = useRef<NewsCanvasHandle>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const canvasImageBlobRef = useRef<Blob | null>(null);
 
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [progress, setProgress] = useState(0);
   const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
   const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
   const [videoError, setVideoError] = useState<string | null>(null);
+
+  const {
+    broadcastPhase,
+    casterName,
+    countdownValue,
+    showOnAirLit,
+    showEndOverlay,
+    showCompletionUI,
+    isPlaying,
+    karaokeSegments,
+    highlightIndex,
+    startBroadcast,
+    handleAudioEnded,
+    handleTimeUpdate,
+    replayBroadcast,
+  } = useBroadcastExperience({
+    audioRef,
+    scriptText,
+  });
+
+  useEffect(() => {
+    setBroadcastPhase("idle");
+    setHighlightIndex(-1);
+  }, [setBroadcastPhase, setHighlightIndex]);
 
   useEffect(() => {
     if (!scriptText || !audioBlob || !photoBase64) {
@@ -54,35 +89,6 @@ export function PreviewView() {
     },
     [setCanvasImage]
   );
-
-  const handleTimeUpdate = useCallback(() => {
-    const audio = audioRef.current;
-    if (!audio || !audio.duration) return;
-    setProgress((audio.currentTime / audio.duration) * 100);
-  }, []);
-
-  const handlePlayPause = useCallback(async () => {
-    const audio = audioRef.current;
-    if (!audio) return;
-
-    if (isPlaying) {
-      audio.pause();
-      setIsPlaying(false);
-      return;
-    }
-
-    try {
-      await audio.play();
-      setIsPlaying(true);
-    } catch {
-      setIsPlaying(false);
-    }
-  }, [isPlaying]);
-
-  const handleEnded = useCallback(() => {
-    setIsPlaying(false);
-    setProgress(0);
-  }, []);
 
   const uploadVideo = async (blob: Blob, mimeType: string) => {
     const formData = new FormData();
@@ -149,73 +155,130 @@ export function PreviewView() {
     return null;
   }
 
-  return (
-    <div className="space-y-6">
-      <h1 className="text-center text-2xl font-bold text-abc-charcoal">
-        きみの2035年ニュースができたよ！
-      </h1>
+  const tickerText = userInput ? buildTickerText(userInput) : "";
+  const isCountdownPhase =
+    broadcastPhase === "standby" || broadcastPhase === "countdown";
+  const isIdle = broadcastPhase === "idle";
+  const showBroadcastChrome = !isIdle && !showCompletionUI;
+  const isOnAirHeaderLit =
+    broadcastPhase === "onair" || (isCountdownPhase && showOnAirLit);
 
-      <NewsCanvas
-        ref={canvasRef}
-        photoBase64={photoBase64}
-        scriptText={scriptText}
-        onReady={handleCanvasReady}
-      />
+  return (
+    <div className="space-y-4">
+      {showCompletionUI ? (
+        <h1 className="text-center text-2xl font-bold text-abc-charcoal">
+          🎉 きみの news おかえり、とどいたよ！
+        </h1>
+      ) : null}
+
+      {showBroadcastChrome ? (
+        <OnAirHeader
+          isOnAir={isOnAirHeaderLit}
+          isEnded={broadcastPhase === "ended"}
+        />
+      ) : null}
+
+      <div
+        className={cn(
+          "relative w-full",
+          showCompletionUI && "mx-auto max-w-sm"
+        )}
+      >
+        <NewsCanvas
+          ref={canvasRef}
+          photoBase64={photoBase64}
+          scriptText={scriptText}
+          onReady={handleCanvasReady}
+        />
+
+        {isCountdownPhase ? (
+          <BroadcastCountdownOverlay
+            casterName={casterName}
+            countdownValue={countdownValue}
+          />
+        ) : null}
+
+        <BroadcastEndOverlay showEndBanner={showEndOverlay} />
+      </div>
+
+      {isIdle ? (
+        <BroadcastStartPanel
+          casterName={casterName}
+          onStart={startBroadcast}
+        />
+      ) : null}
+
+      {!isIdle ? (
+        <div
+          className={cn(
+            "space-y-4",
+            broadcastPhase !== "onair" && "invisible"
+          )}
+          aria-hidden={broadcastPhase !== "onair"}
+        >
+          <AudioVisualizer audioRef={audioRef} isActive={isPlaying} />
+          <KaraokeScript
+            segments={karaokeSegments}
+            highlightIndex={highlightIndex}
+          />
+          {tickerText ? <NewsTicker text={tickerText} /> : null}
+        </div>
+      ) : null}
+
+      {showCompletionUI ? (
+        <>
+          <div className="space-y-2">
+            <Button
+              type="button"
+              disabled={isGeneratingVideo}
+              onClick={handleGenerateVideo}
+              className="h-12 w-full bg-abc-red text-white hover:bg-abc-red/90 disabled:opacity-70"
+            >
+              {isGeneratingVideo ? "どうがをせいさく中..." : "どうがをつくる！"}
+            </Button>
+            {isGeneratingVideo && remainingSeconds !== null ? (
+              <p className="text-center text-sm text-abc-gray">
+                音声を録音中...（あと {remainingSeconds} 秒）
+              </p>
+            ) : null}
+            {videoError ? (
+              <p className="text-center text-sm text-abc-red">{videoError}</p>
+            ) : null}
+          </div>
+
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={replayBroadcast}
+            disabled={isGeneratingVideo}
+            className="w-full text-abc-gray"
+          >
+            聞きなおす
+          </Button>
+        </>
+      ) : null}
 
       {audioUrl ? (
         <audio
           ref={audioRef}
           src={audioUrl}
           onTimeUpdate={handleTimeUpdate}
-          onEnded={handleEnded}
+          onEnded={handleAudioEnded}
           className="hidden"
         />
       ) : null}
 
-      <Button
-        type="button"
-        onClick={handlePlayPause}
-        disabled={isGeneratingVideo}
-        className="h-12 w-full bg-abc-orange text-white hover:bg-abc-orange/90"
-      >
-        {isPlaying ? "停止" : "ニュースを読み上げる"}
-      </Button>
-
-      {isPlaying ? (
-        <div className="space-y-1">
-          <Progress value={progress} className="h-2" />
-          <p className="text-center text-xs text-abc-gray">再生中</p>
-        </div>
-      ) : null}
-
-      <div className="space-y-2">
+      {!showCompletionUI ? (
         <Button
           type="button"
-          disabled={isGeneratingVideo}
-          onClick={handleGenerateVideo}
-          className="h-12 w-full bg-abc-red text-white hover:bg-abc-red/90 disabled:opacity-70"
+          variant="ghost"
+          onClick={() => router.push("/camera")}
+          disabled={isGeneratingVideo || !isIdle}
+          className="w-full text-abc-gray"
         >
-          {isGeneratingVideo ? "どうがをせいさく中..." : "どうがをつくる！"}
+          ← もどる
         </Button>
-        {isGeneratingVideo && remainingSeconds !== null ? (
-          <p className="text-center text-sm text-abc-gray">
-            音声を録音中...（あと {remainingSeconds} 秒）
-          </p>
-        ) : null}
-        {videoError ? (
-          <p className="text-center text-sm text-abc-red">{videoError}</p>
-        ) : null}
-      </div>
-
-      <Button
-        type="button"
-        variant="ghost"
-        onClick={() => router.push("/camera")}
-        disabled={isGeneratingVideo}
-        className="w-full text-abc-gray"
-      >
-        ← もどる
-      </Button>
+      ) : null}
     </div>
   );
 }

@@ -33,10 +33,13 @@ function getDeploymentName(): string {
 }
 
 function getVoice(): string {
+  // nova: ABCキャスター文化の「真面目さと親しみやすさの両立」に最も近い声質
+  // alloy に変更すると MC 横山太一風の男性声にも対応可能
   return process.env.OPENAI_TTS_VOICE ?? "nova";
 }
 
 function getSpeed(): number {
+  // 0.95: ABCアナウンサーの丁寧な語り・news おかえりの落ち着いたテンポを再現
   const raw = process.env.OPENAI_TTS_SPEED;
   if (!raw) return 0.95;
   const speed = Number(raw);

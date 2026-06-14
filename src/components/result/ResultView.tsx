@@ -94,11 +94,13 @@ export function ResultView() {
     <div className="space-y-6">
       <div className="text-center">
         <h1 className="text-2xl font-bold text-abc-charcoal">
-          きみの未来ニュース、完成！
+          🎉 きみの news おかえり、完成！
         </h1>
-        <p className="mt-2 text-sm text-abc-gray">
-          Day 4 で紙吹雪アニメーションが入るよ
-        </p>
+        <div
+          className="mt-2 h-8"
+          aria-hidden
+          data-confetti-placeholder
+        />
       </div>
 
       {isFallback ? (
@@ -194,7 +196,9 @@ export function ResultView() {
           </div>
 
           <p className="text-center text-sm text-abc-charcoal">
-            QRコードをよみとって、どうがをほぞんしてね！
+            このQRをよみとると
+            <br />
+            どうががおうちにおかえりするよ！
           </p>
         </>
       )}
@@ -205,7 +209,7 @@ export function ResultView() {
         onClick={handleReset}
         className="h-12 w-full"
       >
-        つぎのひとへ（リセット）
+        つぎのキャスターへ
       </Button>
     </div>
   );
