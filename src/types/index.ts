@@ -51,10 +51,27 @@ export const GRADES = GRADE_OPTIONS.map((g) => g.value);
 
 export type GradeValue = (typeof GRADE_OPTIONS)[number]["value"];
 
+export type VideoMode = "ffmpeg" | "mediarecorder" | "fallback";
+
+export type VideoOutput =
+  | { type: "video"; blob: Blob; mimeType: string }
+  | { type: "fallback"; imageBlob: Blob; audioBlob: Blob };
+
+export type GenerateVideoInput = {
+  canvas: HTMLCanvasElement;
+  canvasImageBlob: Blob;
+  audioBlob: Blob;
+};
+
+export type UploadResponse = {
+  url: string;
+};
+
 export type SessionGuardField =
   | "userInput"
   | "photoBase64"
   | "scriptText"
-  | "videoBlob";
+  | "videoBlob"
+  | "resultReady";
 
 export type ExperienceStep = 1 | 2 | 3 | 4 | 5;
