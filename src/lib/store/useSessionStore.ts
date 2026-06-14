@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-import type { UserInput, VideoMode } from "@/types";
+import type { BroadcastPhase, UserInput, VideoMode } from "@/types";
 
 type SessionState = {
   userInput: UserInput | null;
@@ -12,6 +12,8 @@ type SessionState = {
   videoMimeType: string | null;
   videoMode: VideoMode | null;
   blobUrl: string | null;
+  broadcastPhase: BroadcastPhase;
+  highlightIndex: number;
   setUserInput: (input: UserInput) => void;
   setPhoto: (base64: string) => void;
   setScript: (text: string) => void;
@@ -20,6 +22,8 @@ type SessionState = {
   setVideo: (blob: Blob, mimeType: string) => void;
   setVideoMode: (mode: VideoMode) => void;
   setBlobUrl: (url: string) => void;
+  setBroadcastPhase: (phase: BroadcastPhase) => void;
+  setHighlightIndex: (index: number) => void;
   reset: () => void;
 };
 
@@ -33,6 +37,8 @@ const initialState = {
   videoMimeType: null,
   videoMode: null,
   blobUrl: null,
+  broadcastPhase: "idle" as BroadcastPhase,
+  highlightIndex: -1,
 };
 
 export const useSessionStore = create<SessionState>((set) => ({
@@ -45,6 +51,8 @@ export const useSessionStore = create<SessionState>((set) => ({
   setVideo: (blob, mimeType) => set({ videoBlob: blob, videoMimeType: mimeType }),
   setVideoMode: (mode) => set({ videoMode: mode }),
   setBlobUrl: (url) => set({ blobUrl: url }),
+  setBroadcastPhase: (phase) => set({ broadcastPhase: phase }),
+  setHighlightIndex: (index) => set({ highlightIndex: index }),
   reset: () => set(initialState),
 }));
 

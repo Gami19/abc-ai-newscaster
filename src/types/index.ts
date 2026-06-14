@@ -75,3 +75,11 @@ export type SessionGuardField =
   | "resultReady";
 
 export type ExperienceStep = 1 | 2 | 3 | 4 | 5;
+
+export type BroadcastPhase = "idle" | "standby" | "countdown" | "onair" | "ended";
+
+export type ScriptSegment = {
+  text: string;
+  startRatio: number;
+  endRatio: number;
+};

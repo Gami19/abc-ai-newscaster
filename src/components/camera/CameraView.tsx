@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import Webcam from "react-webcam";
 
+import { CameraNewsOverlay } from "@/components/camera/CameraNewsOverlay";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useSessionStore } from "@/lib/store/useSessionStore";
@@ -86,25 +87,28 @@ export function CameraView() {
     <Card className="overflow-hidden border-border shadow-sm">
       <CardContent className="space-y-4 p-4">
         <h1 className="text-center text-2xl font-bold text-abc-charcoal">
-          ニュースキャスターになろう！
+          カメラに向かってすわってね！
         </h1>
 
         <div className="relative aspect-video w-full overflow-hidden rounded-2xl bg-black">
           {phase === "idle" ? (
-            <Webcam
-              ref={webcamRef}
-              audio={false}
-              mirrored
-              screenshotFormat="image/jpeg"
-              screenshotQuality={0.92}
-              videoConstraints={{
-                width: 1280,
-                height: 720,
-                facingMode: "user",
-              }}
-              onUserMediaError={handleUserMediaError}
-              className="h-full w-full object-cover"
-            />
+            <>
+              <Webcam
+                ref={webcamRef}
+                audio={false}
+                mirrored
+                screenshotFormat="image/jpeg"
+                screenshotQuality={0.92}
+                videoConstraints={{
+                  width: 1280,
+                  height: 720,
+                  facingMode: "user",
+                }}
+                onUserMediaError={handleUserMediaError}
+                className="h-full w-full object-cover"
+              />
+              <CameraNewsOverlay />
+            </>
           ) : previewUrl ? (
             <Image
               src={previewUrl}
@@ -122,7 +126,7 @@ export function CameraView() {
             onClick={capturePhoto}
             className="h-12 w-full bg-abc-red text-lg text-white hover:bg-abc-red/90"
           >
-            撮影する
+            さつえいする！
           </Button>
         ) : (
           <div className="flex flex-col gap-3 sm:flex-row">

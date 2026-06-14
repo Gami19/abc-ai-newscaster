@@ -17,7 +17,7 @@ export function NewsPreviewCard({
     <Card className="overflow-hidden border-2 border-abc-orange/30 shadow-sm">
       <CardContent className="space-y-4 p-4">
         <div className="rounded-lg bg-abc-orange px-3 py-2 text-center text-sm font-bold text-white">
-          ABC NEWS 2035
+          news おかえり 2035
         </div>
 
         <div className="relative mx-auto size-24 overflow-hidden rounded-full border-2 border-abc-orange">

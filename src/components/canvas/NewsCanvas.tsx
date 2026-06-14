@@ -15,6 +15,11 @@ const PHOTO_X = CANVAS_WIDTH - PHOTO_SIZE - 48;
 const PHOTO_Y = 48;
 const PHOTO_RADIUS = 16;
 
+const TELOP_MARGIN = 48;
+const TELOP_HEIGHT = 140;
+const TELOP_Y = CANVAS_HEIGHT - TELOP_HEIGHT;
+const TELOP_WIDTH = CANVAS_WIDTH - TELOP_MARGIN * 2;
+
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"] as const;
 
 type NewsCanvasProps = {
@@ -31,6 +36,13 @@ function formatNewsDate(): string {
   const now = new Date();
   const weekday = WEEKDAYS[now.getDay()];
   return `2035年 ${now.getMonth() + 1}月 ${now.getDate()}日（${weekday}）`;
+}
+
+function formatShortNewsDate(): string {
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `2035.${month}.${day}`;
 }
 
 function loadImage(src: string): Promise<HTMLImageElement> {
@@ -107,26 +119,37 @@ async function composeNewsCanvas(
   ctx.drawImage(template, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
   drawRoundedImage(ctx, photo, PHOTO_X, PHOTO_Y, PHOTO_SIZE, PHOTO_SIZE, PHOTO_RADIUS);
 
+  // ヘッダー（テンプレは色のみ・テキストはここで1回だけ描画）
   ctx.fillStyle = "#ffffff";
+  ctx.font = "bold 20px sans-serif";
+  ctx.fillText("ABC", TELOP_MARGIN, 36);
+
   ctx.font = "bold 28px sans-serif";
-  ctx.fillText("ABC NEWS 2035", 48, 56);
+  ctx.fillText("news おかえり 2035", TELOP_MARGIN, 72);
 
   ctx.font = "bold 22px sans-serif";
-  ctx.fillText(formatNewsDate(), 48, 96);
+  ctx.fillText(formatNewsDate(), TELOP_MARGIN, 104);
 
-  const telopX = 48;
-  const telopY = CANVAS_HEIGHT - 200;
-  const telopWidth = CANVAS_WIDTH - 96;
-  const telopHeight = 140;
+  // 右下日付（メインエリア・テロップ帯の上）
+  const shortDate = formatShortNewsDate();
+  ctx.font = "bold 18px sans-serif";
+  ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
+  const shortDateWidth = ctx.measureText(shortDate).width;
+  ctx.fillText(
+    shortDate,
+    CANVAS_WIDTH - TELOP_MARGIN - shortDateWidth,
+    TELOP_Y - 16
+  );
 
-  ctx.fillStyle = "rgba(51, 51, 51, 0.85)";
-  ctx.fillRect(telopX, telopY, telopWidth, telopHeight);
+  // news おかえり のテロップ帯（サンライズオレンジ 80%）
+  ctx.fillStyle = "rgba(255, 140, 0, 0.8)";
+  ctx.fillRect(TELOP_MARGIN, TELOP_Y, TELOP_WIDTH, TELOP_HEIGHT);
 
   ctx.fillStyle = "#ffffff";
   ctx.font = "24px sans-serif";
-  const lines = wrapText(ctx, scriptText, telopWidth - 32);
+  const lines = wrapText(ctx, scriptText, TELOP_WIDTH - 32);
   lines.slice(0, 4).forEach((line, index) => {
-    ctx.fillText(line, telopX + 16, telopY + 36 + index * 32);
+    ctx.fillText(line, TELOP_MARGIN + 16, TELOP_Y + 36 + index * 32);
   });
 
   return new Promise((resolve, reject) => {

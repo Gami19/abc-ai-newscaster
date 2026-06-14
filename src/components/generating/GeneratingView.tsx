@@ -168,7 +168,9 @@ export function GeneratingView() {
       <Card className="border-border shadow-sm">
         <CardContent className="space-y-8 py-8">
           <h1 className="text-center text-2xl font-bold text-abc-charcoal">
-            AIが2035年を予測中...
+            news おかえり 2035年版、
+            <br />
+            せいさく中...
           </h1>
 
           <FutureRadar />
@@ -187,8 +189,14 @@ export function GeneratingView() {
           </div>
 
           <div className="space-y-2">
-            <StatusLine label="ニュース原稿を" status={scriptStatus} />
-            <StatusLine label="音声を合成" status={ttsStatus} />
+            <StatusLine
+              label="きみのニュース原稿を ABCフォーマットで生成中"
+              status={scriptStatus}
+            />
+            <StatusLine
+              label="ABCキャスター風の声でよみあげの準備中"
+              status={ttsStatus}
+            />
           </div>
         </CardContent>
       </Card>
