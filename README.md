@@ -251,7 +251,35 @@ BLOB_READ_WRITE_TOKEN=vercel_blob_rw_...
 # ─── 動画生成方針 ─────────────────────────────────
 # ffmpeg | mediarecorder | fallback
 VIDEO_MODE=ffmpeg
+
+# ─── デモ用 MOCK（APIキー不要）────────────────────
+DEMO_MOCK_SCRIPT=true
+DEMO_MOCK_TTS=true
+DEMO_MOCK_DELAY_MS=1500
+DEMO_MOCK_TTS_AUDIO_PATH=public/sounds/demo-tts.wav
 ```
+
+### デモモード（APIキー不要）
+
+イベント会場や審査デモで API キーなしで体験フローを通す場合、`.env.local` に以下を設定します。
+
+```bash
+DEMO_MOCK_SCRIPT=true   # 原稿生成を buildDefaultScript に差し替え
+DEMO_MOCK_TTS=true      # TTS を固定サンプル音声に差し替え
+```
+
+| 項目 | 挙動 |
+|------|------|
+| カメラ撮影 | **実機のまま**（MOCK 対象外） |
+| 原稿生成 | 入力名・夢・好きなことを反映したデフォルト原稿 |
+| TTS | `public/sounds/demo-tts.wav`（固定サンプル） |
+| 個別切替 | `DEMO_MOCK_SCRIPT` / `DEMO_MOCK_TTS` をそれぞれ `true` / `false` で制御 |
+
+**注意**
+
+- TTS MOCK は固定サンプルのため、画面上の原稿テキストと読み上げ内容・長さは一致しません。カラオケは音声の長さに按分して動きます。
+- プレースホルダー音声の生成: `node scripts/generate-demo-tts-placeholder.mjs`
+- 本番デモ用には、OpenAI TTS 等で録音したニュース風サンプル（約20〜30秒）を `demo-tts.wav` または `demo-tts.mp3` に差し替え、`DEMO_MOCK_TTS_AUDIO_PATH` でパスを指定できます。
 
 ### API Key の取得先
 
