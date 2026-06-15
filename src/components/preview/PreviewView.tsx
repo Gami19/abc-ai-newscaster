@@ -208,7 +208,7 @@ export function PreviewView() {
         />
       ) : null}
 
-      {!isIdle ? (
+      {!isIdle && !showCompletionUI ? (
         <div
           className={cn(
             "space-y-4",

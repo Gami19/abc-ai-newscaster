@@ -1,6 +1,8 @@
 import { azureProvider } from "@/lib/ai/azure";
 import { bedrockProvider } from "@/lib/ai/bedrock";
+import { mockProvider } from "@/lib/ai/mock";
 import { openaiProvider } from "@/lib/ai/openai";
+import { isDemoMockScript } from "@/lib/config/demo";
 import type { AIProvider, GenerateScriptInput } from "@/types";
 
 function resolveProvider(): AIProvider {
@@ -14,6 +16,10 @@ function resolveProvider(): AIProvider {
 export async function generateScript(
   input: GenerateScriptInput
 ): Promise<string> {
+  if (isDemoMockScript()) {
+    return mockProvider.generateScript(input);
+  }
+
   const provider = resolveProvider();
 
   switch (provider) {
