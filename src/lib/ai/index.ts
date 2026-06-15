@@ -3,7 +3,7 @@ import { bedrockProvider } from "@/lib/ai/bedrock";
 import { mockProvider } from "@/lib/ai/mock";
 import { openaiProvider } from "@/lib/ai/openai";
 import { isDemoMockScript } from "@/lib/config/demo";
-import type { AIProvider, GenerateScriptInput } from "@/types";
+import type { AIProvider, GenerateScriptInput, GenerateScriptResult } from "@/types";
 
 function resolveProvider(): AIProvider {
   const provider = process.env.AI_PROVIDER?.toLowerCase();
@@ -15,7 +15,7 @@ function resolveProvider(): AIProvider {
 
 export async function generateScript(
   input: GenerateScriptInput
-): Promise<string> {
+): Promise<GenerateScriptResult> {
   if (isDemoMockScript()) {
     return mockProvider.generateScript(input);
   }

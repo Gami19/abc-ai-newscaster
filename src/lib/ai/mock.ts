@@ -1,6 +1,7 @@
 import { getDemoMockDelayMs } from "@/lib/config/demo";
+import { detectCategory } from "@/lib/theme/dreamTheme";
 import { buildDefaultScript } from "@/lib/prompts/defaultScript";
-import type { AIProviderInterface, GenerateScriptInput } from "@/types";
+import type { AIProviderInterface, GenerateScriptInput, GenerateScriptResult } from "@/types";
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -8,12 +9,15 @@ function sleep(ms: number): Promise<void> {
 
 export async function generateScript(
   input: GenerateScriptInput
-): Promise<string> {
+): Promise<GenerateScriptResult> {
   const delayMs = getDemoMockDelayMs();
   if (delayMs > 0) {
     await sleep(delayMs);
   }
-  return buildDefaultScript(input);
+  return {
+    script: buildDefaultScript(input),
+    category: detectCategory(input.dream),
+  };
 }
 
 export const mockProvider: AIProviderInterface = {

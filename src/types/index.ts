@@ -9,14 +9,25 @@ export type GenerateRequestBody = UserInput;
 
 export type GenerateScriptInput = UserInput;
 
+export type DreamCategory =
+  | "sports"
+  | "space"
+  | "creative"
+  | "care"
+  | "food"
+  | "default";
+
 export type GenerateScriptOutput = {
   script: string;
+  category: DreamCategory;
 };
+
+export type GenerateScriptResult = GenerateScriptOutput;
 
 export type AIProvider = "openai" | "azure" | "bedrock";
 
 export type AIProviderInterface = {
-  generateScript(input: GenerateScriptInput): Promise<string>;
+  generateScript(input: GenerateScriptInput): Promise<GenerateScriptResult>;
 };
 
 export type TtsProvider = "openai" | "azure";

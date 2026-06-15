@@ -17,9 +17,9 @@ export async function POST(request: Request) {
       );
     }
 
-    const script = await generateScript(result.data);
+    const { script, category } = await generateScript(result.data);
 
-    return NextResponse.json<GenerateScriptOutput>({ script });
+    return NextResponse.json<GenerateScriptOutput>({ script, category });
   } catch (error) {
     if (error instanceof OpenAI.APIError && error.status === 429) {
       return NextResponse.json<ApiErrorResponse>(

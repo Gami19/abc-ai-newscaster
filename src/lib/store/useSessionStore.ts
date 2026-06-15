@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-import type { BroadcastPhase, UserInput, VideoMode } from "@/types";
+import type { BroadcastPhase, DreamCategory, UserInput, VideoMode } from "@/types";
 
 type SessionState = {
   userInput: UserInput | null;
@@ -12,6 +12,7 @@ type SessionState = {
   videoMimeType: string | null;
   videoMode: VideoMode | null;
   blobUrl: string | null;
+  dreamCategory: DreamCategory | null;
   broadcastPhase: BroadcastPhase;
   highlightIndex: number;
   setUserInput: (input: UserInput) => void;
@@ -22,6 +23,7 @@ type SessionState = {
   setVideo: (blob: Blob, mimeType: string) => void;
   setVideoMode: (mode: VideoMode) => void;
   setBlobUrl: (url: string) => void;
+  setDreamCategory: (category: DreamCategory) => void;
   setBroadcastPhase: (phase: BroadcastPhase) => void;
   setHighlightIndex: (index: number) => void;
   reset: () => void;
@@ -37,6 +39,7 @@ const initialState = {
   videoMimeType: null,
   videoMode: null,
   blobUrl: null,
+  dreamCategory: null as DreamCategory | null,
   broadcastPhase: "idle" as BroadcastPhase,
   highlightIndex: -1,
 };
@@ -51,6 +54,7 @@ export const useSessionStore = create<SessionState>((set) => ({
   setVideo: (blob, mimeType) => set({ videoBlob: blob, videoMimeType: mimeType }),
   setVideoMode: (mode) => set({ videoMode: mode }),
   setBlobUrl: (url) => set({ blobUrl: url }),
+  setDreamCategory: (category) => set({ dreamCategory: category }),
   setBroadcastPhase: (phase) => set({ broadcastPhase: phase }),
   setHighlightIndex: (index) => set({ highlightIndex: index }),
   reset: () => set(initialState),

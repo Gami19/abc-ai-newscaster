@@ -24,9 +24,9 @@ export function KaraokeScript({ segments, highlightIndex }: KaraokeScriptProps) 
               animate={{ scale: isActive ? 1.05 : 1 }}
               className={`rounded px-2 py-1 text-base transition-colors ${
                 isActive
-                  ? "bg-abc-orange text-white"
+                  ? "scale-105 bg-abc-orange text-white"
                   : isDone
-                    ? "text-abc-gray"
+                    ? "text-[#666666]"
                     : "text-abc-charcoal"
               }`}
             >

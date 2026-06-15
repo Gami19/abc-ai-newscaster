@@ -16,7 +16,7 @@ export function BroadcastStartPanel({
   return (
     <div className="space-y-4 rounded-lg border border-abc-orange/30 bg-white p-6 text-center shadow-sm">
       <p className="text-xl font-bold text-abc-charcoal sm:text-2xl">
-        準備ができたよ！
+        きみのニュースのじゅんびができたよ！
       </p>
       <p className="text-base leading-relaxed text-abc-charcoal sm:text-lg">
         ボタンをおすと、
@@ -36,7 +36,7 @@ export function BroadcastStartPanel({
         disabled={disabled}
         className="h-14 w-full bg-abc-red text-lg text-white hover:bg-abc-red/90 disabled:opacity-70"
       >
-        放送をはじめる！
+        📺 ほうそうスタート！
       </Button>
     </div>
   );

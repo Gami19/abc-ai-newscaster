@@ -7,6 +7,12 @@ type BroadcastCountdownOverlayProps = {
   countdownValue: number | null;
 };
 
+const COUNTDOWN_COLORS: Record<number, string> = {
+  3: "#333333",
+  2: "#FF8C00",
+  1: "#FF4500",
+};
+
 export function BroadcastCountdownOverlay({
   casterName,
   countdownValue,
@@ -36,7 +42,13 @@ export function BroadcastCountdownOverlay({
             initial={{ scale: 1.5, opacity: 1 }}
             animate={{ scale: 1, opacity: 0 }}
             transition={{ duration: 0.9, ease: "easeOut" }}
-            className="text-7xl font-bold text-abc-orange sm:text-8xl"
+            className="text-7xl font-bold sm:text-8xl"
+            style={{
+              color:
+                countdownValue !== null
+                  ? (COUNTDOWN_COLORS[countdownValue] ?? "#FF8C00")
+                  : "#FF8C00",
+            }}
           >
             {countdownValue}
           </motion.span>

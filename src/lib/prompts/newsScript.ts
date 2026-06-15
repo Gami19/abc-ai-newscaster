@@ -40,7 +40,13 @@ export const SYSTEM_PROMPT = `あなたは朝日放送テレビ「news おかえ
 - {name}・hobby・dream などのプレースホルダー文字列は
   原稿にそのまま出力しないでください
 
-原稿はプレーンテキストのみで返してください。JSON形式は使わないでください。`;
+【カテゴリ判定】
+子供の「将来の夢」から、以下のいずれか1つを判定してください：
+sports | space | creative | care | food | default
+
+【出力形式】
+必ず以下の JSON のみを返してください（説明文やマークダウンは不要）：
+{"script": "原稿テキスト", "category": "sports"}`;
 
 export function buildUserPrompt(input: GenerateScriptInput): string {
   return `以下の子供の情報をもとに

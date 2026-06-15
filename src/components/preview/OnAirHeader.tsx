@@ -12,10 +12,11 @@ export function OnAirHeader({ isOnAir, isEnded = false }: OnAirHeaderProps) {
         <span className="text-sm font-bold text-white/80">⚫ OFF AIR</span>
       ) : isOnAir ? (
         <span
-          className="animate-pulse text-sm font-bold text-white"
+          className="text-sm font-bold text-white"
+          style={{ animation: "live-blink 1s ease-in-out infinite" }}
           aria-live="polite"
         >
-          🔴 ON AIR
+          🔴 LIVE
         </span>
       ) : (
         <span className="text-sm font-bold text-white/70">⚫ ON AIR</span>

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { buildDefaultScript } from "@/lib/prompts/defaultScript";
+import { detectCategory } from "@/lib/theme/dreamTheme";
 import { useSessionStore } from "@/lib/store/useSessionStore";
 import type { GenerateScriptOutput, UserInput } from "@/types";
 
@@ -17,7 +18,9 @@ type StepStatus = "pending" | "active" | "done";
 const RETRY_DELAY_MS = 2000;
 const COMPLETE_DELAY_MS = 600;
 
-async function fetchScript(userInput: UserInput): Promise<string | null> {
+async function fetchScript(
+  userInput: UserInput
+): Promise<GenerateScriptOutput | null> {
   const response = await fetch("/api/generate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -29,7 +32,7 @@ async function fetchScript(userInput: UserInput): Promise<string | null> {
   }
 
   const data = (await response.json()) as GenerateScriptOutput;
-  return data.script;
+  return data;
 }
 
 async function fetchAudio(scriptText: string): Promise<Blob | null> {
@@ -87,6 +90,7 @@ export function GeneratingView() {
   const userInput = useSessionStore((s) => s.userInput);
   const photoBase64 = useSessionStore((s) => s.photoBase64);
   const setScript = useSessionStore((s) => s.setScript);
+  const setDreamCategory = useSessionStore((s) => s.setDreamCategory);
   const setAudio = useSessionStore((s) => s.setAudio);
 
   const [progress, setProgress] = useState(0);
@@ -105,16 +109,21 @@ export function GeneratingView() {
     hasStarted.current = true;
 
     const run = async () => {
-      let script = await fetchScript(userInput);
+      let result = await fetchScript(userInput);
 
-      if (!script) {
+      if (!result) {
         await sleep(RETRY_DELAY_MS);
-        script = await fetchScript(userInput);
+        result = await fetchScript(userInput);
       }
 
-      if (!script) {
+      let script: string;
+      if (!result) {
         console.error("[GeneratingView] AI generation failed, using default script");
         script = buildDefaultScript(userInput);
+        setDreamCategory(detectCategory(userInput.dream));
+      } else {
+        script = result.script;
+        setDreamCategory(result.category);
       }
 
       setScript(script);
@@ -139,7 +148,7 @@ export function GeneratingView() {
     };
 
     void run();
-  }, [userInput, photoBase64, router, setScript, setAudio]);
+  }, [userInput, photoBase64, router, setScript, setDreamCategory, setAudio]);
 
   if (ttsError) {
     return (

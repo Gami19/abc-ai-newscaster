@@ -19,11 +19,13 @@ const PHASE_C_COMPLETION_MS =
 
 type UseBroadcastExperienceOptions = {
   audioRef: RefObject<HTMLAudioElement | null>;
+  audioContextRef: RefObject<AudioContext | null>;
   scriptText: string | null;
 };
 
 export function useBroadcastExperience({
   audioRef,
+  audioContextRef,
   scriptText,
 }: UseBroadcastExperienceOptions) {
   const broadcastPhase = useSessionStore((s) => s.broadcastPhase);
@@ -101,9 +103,26 @@ export function useBroadcastExperience({
     schedule(5000, () => void startOnAir());
   }, [playChime, setBroadcastPhase, setHighlightIndex, startOnAir]);
 
-  const startBroadcast = useCallback(() => {
+  const startBroadcast = useCallback(async () => {
+    const audio = audioRef.current;
+    if (audio) {
+      audio.load();
+    }
+
+    try {
+      if (!audioContextRef.current) {
+        audioContextRef.current = new AudioContext();
+      }
+      const ctx = audioContextRef.current;
+      if (ctx.state === "suspended") {
+        await ctx.resume();
+      }
+    } catch (err) {
+      console.warn("[useBroadcastExperience] AudioContext resume failed", err);
+    }
+
     runPhaseA();
-  }, [runPhaseA]);
+  }, [audioRef, audioContextRef, runPhaseA]);
 
   const runPhaseC = useCallback(() => {
     clearPhaseCTimers();

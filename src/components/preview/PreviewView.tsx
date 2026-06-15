@@ -18,6 +18,7 @@ import { OnAirHeader } from "@/components/preview/OnAirHeader";
 import { Button } from "@/components/ui/button";
 import { useBroadcastExperience } from "@/hooks/useBroadcastExperience";
 import { buildTickerText } from "@/lib/karaoke/tickerMessages";
+import { detectCategory } from "@/lib/theme/dreamTheme";
 import { cn } from "@/lib/utils";
 import { generateVideo } from "@/lib/video";
 import { useSessionStore } from "@/lib/store/useSessionStore";
@@ -28,6 +29,7 @@ export function PreviewView() {
   const audioBlob = useSessionStore((s) => s.audioBlob);
   const photoBase64 = useSessionStore((s) => s.photoBase64);
   const userInput = useSessionStore((s) => s.userInput);
+  const dreamCategory = useSessionStore((s) => s.dreamCategory);
   const setCanvasImage = useSessionStore((s) => s.setCanvasImage);
   const setVideo = useSessionStore((s) => s.setVideo);
   const setVideoMode = useSessionStore((s) => s.setVideoMode);
@@ -37,6 +39,7 @@ export function PreviewView() {
 
   const canvasRef = useRef<NewsCanvasHandle>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
   const canvasImageBlobRef = useRef<Blob | null>(null);
 
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
@@ -60,6 +63,7 @@ export function PreviewView() {
     replayBroadcast,
   } = useBroadcastExperience({
     audioRef,
+    audioContextRef,
     scriptText,
   });
 
@@ -156,6 +160,8 @@ export function PreviewView() {
   }
 
   const tickerText = userInput ? buildTickerText(userInput) : "";
+  const resolvedCategory =
+    dreamCategory ?? (userInput ? detectCategory(userInput.dream) : "default");
   const isCountdownPhase =
     broadcastPhase === "standby" || broadcastPhase === "countdown";
   const isIdle = broadcastPhase === "idle";
@@ -188,6 +194,9 @@ export function PreviewView() {
           ref={canvasRef}
           photoBase64={photoBase64}
           scriptText={scriptText}
+          userName={userInput?.name ?? ""}
+          dreamCategory={resolvedCategory}
+          dreamText={userInput?.dream ?? ""}
           onReady={handleCanvasReady}
         />
 
@@ -216,7 +225,11 @@ export function PreviewView() {
           )}
           aria-hidden={broadcastPhase !== "onair"}
         >
-          <AudioVisualizer audioRef={audioRef} isActive={isPlaying} />
+          <AudioVisualizer
+            audioRef={audioRef}
+            audioContextRef={audioContextRef}
+            isActive={isPlaying}
+          />
           <KaraokeScript
             segments={karaokeSegments}
             highlightIndex={highlightIndex}
