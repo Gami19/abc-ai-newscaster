@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { QRCodeSVG } from "qrcode.react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -25,7 +24,6 @@ export function ResultView() {
   const videoMode = useSessionStore((s) => s.videoMode);
   const canvasImageBlob = useSessionStore((s) => s.canvasImageBlob);
   const audioBlob = useSessionStore((s) => s.audioBlob);
-  const blobUrl = useSessionStore((s) => s.blobUrl);
   const reset = useSessionStore((s) => s.reset);
 
   const [localVideoUrl, setLocalVideoUrl] = useState<string | null>(null);
@@ -87,7 +85,6 @@ export function ResultView() {
     return null;
   }
 
-  const downloadHref = blobUrl ?? localVideoUrl ?? undefined;
   const downloadExt = videoMimeType?.includes("webm") ? "webm" : "mp4";
 
   return (
@@ -151,54 +148,35 @@ export function ResultView() {
             />
           ) : null}
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            {blobUrl ? (
-              <Card className="border-border shadow-sm">
-                <CardContent className="flex flex-col items-center gap-3 py-6">
-                  <p className="text-sm font-medium text-abc-charcoal">QRコード</p>
-                  <QRCodeSVG value={blobUrl} size={160} />
-                  <p className="text-center text-xs text-abc-gray">
-                    保護者のスマホで読み取ってね
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              <Card className="border-border shadow-sm">
-                <CardContent className="py-6 text-center text-sm text-abc-gray">
-                  QRコードは Blob 設定後に表示されます。
-                  <br />
-                  いまはこの端末でダウンロードしてね。
-                </CardContent>
-              </Card>
-            )}
-
-            <Card className="border-border shadow-sm">
-              <CardContent className="flex flex-col justify-center gap-3 py-6">
-                {downloadHref ? (
-                  <a
-                    href={downloadHref}
-                    download={`abc-news-2035.${downloadExt}`}
-                    className="inline-flex h-12 w-full items-center justify-center rounded-md bg-abc-red text-white hover:bg-abc-red/90"
-                  >
-                    ダウンロード
-                  </a>
-                ) : (
-                  <Button
-                    type="button"
-                    onClick={handleDownloadVideo}
-                    className="h-12 w-full bg-abc-red text-white hover:bg-abc-red/90"
-                  >
-                    ダウンロード
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+          <Card className="border-border shadow-sm">
+            <CardContent className="flex flex-col items-center gap-3 py-6">
+              <p className="text-center text-sm text-abc-charcoal">
+                このパソコンにどうがをほぞんしてね
+              </p>
+              {localVideoUrl ? (
+                <a
+                  href={localVideoUrl}
+                  download={`abc-news-2035.${downloadExt}`}
+                  className="inline-flex h-12 w-full max-w-sm items-center justify-center rounded-md bg-abc-red text-white hover:bg-abc-red/90"
+                >
+                  どうがをダウンロード
+                </a>
+              ) : (
+                <Button
+                  type="button"
+                  onClick={handleDownloadVideo}
+                  className="h-12 w-full max-w-sm bg-abc-red text-white hover:bg-abc-red/90"
+                >
+                  どうがをダウンロード
+                </Button>
+              )}
+            </CardContent>
+          </Card>
 
           <p className="text-center text-sm text-abc-charcoal">
-            このQRをよみとると
+            ほぞんしたどうがを
             <br />
-            どうががおうちにおかえりするよ！
+            おうちにおかえりしよう！
           </p>
         </>
       )}

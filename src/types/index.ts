@@ -74,10 +74,6 @@ export type GenerateVideoInput = {
   audioBlob: Blob;
 };
 
-export type UploadResponse = {
-  url: string;
-};
-
 export type SessionGuardField =
   | "userInput"
   | "photoBase64"

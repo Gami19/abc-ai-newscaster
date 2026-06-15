@@ -5,11 +5,12 @@
 
 ---
 
-## 📺 デモ
+## 💻 体験方法
 
-**[https://abc-ai-newscaster.vercel.app](https://abc-ai-newscaster.vercel.app)**
+**ローカル PC で `npm run dev` を起動し、Chrome で体験します。**
 
-> Chrome 最新版 + カメラ付きデバイス推奨
+> Chrome 最新版 + カメラ付き PC 推奨  
+> 公開デプロイ（Vercel 等）は行いません。イベント会場では各ブース PC でローカル起動します。
 
 **動作確認について**
 
@@ -25,14 +26,14 @@
 小学生が名前・学年・夢・好きなことを入力するだけで、
 AI が「2035年の未来ニュース原稿」を生成し、
 本物のニューステンプレートに顔写真を合成した動画を
-QR コードで持ち帰れる体験アプリ。
+この PC にダウンロードして持ち帰れる体験アプリ。
 
 ```
 入力（30秒）
   → 撮影（20秒）
   → AI生成（15秒）
   → プレビュー・音声読み上げ（40秒）
-  → QR で動画をもらう（20秒）
+  → この PC で動画をダウンロード（20秒）
 
 合計 約2分15秒 / 1人
 5台並列運用で 約260人 / 時間 をさばける設計
@@ -48,10 +49,10 @@ QR コードで持ち帰れる体験アプリ。
 | カメラ撮影 | Webカメラで顔写真を撮影・ニュース風フレームで構図を誘導 |
 | AI原稿生成 | GPT-4o が 2035年の未来ニュース原稿を150字で生成 |
 | マルチプロバイダー | OpenAI / Azure OpenAI / Amazon Bedrock を環境変数で切り替え |
-| 音声合成 | VoiceText (HOYA) による自然な日本語読み上げ |
+| 音声合成 | OpenAI TTS（Azure OpenAI TTS も切替可）による自然な日本語読み上げ |
 | Canvas合成 | ニューステンプレート + 顔写真 + テロップをブラウザ内で合成 |
 | 動画生成 | ffmpeg.wasm でブラウザ内 mp4 生成（顔写真がサーバーに送信されない） |
-| QR配布 | Vercel Blob に動画をアップロード → QR コードで別端末からDL可能 |
+| 動画保存 | 同 PC へブラウザから直接ダウンロード |
 
 ---
 
@@ -59,15 +60,14 @@ QR コードで持ち帰れる体験アプリ。
 
 | レイヤー | 技術 | 採用理由 |
 |---------|------|---------|
-| フレームワーク | Next.js 15 (App Router / TypeScript) | Vercel への即時デプロイ・型安全 |
+| フレームワーク | Next.js 16 (App Router / TypeScript) | ローカル開発と API Routes を1リポジトリで完結 |
 | UI | shadcn/ui + TailwindCSS | 高品質コンポーネント・ABCカラーへのカスタマイズ容易性 |
 | アニメーション | Framer Motion | ページ遷移・カウントダウン・紙吹雪演出 |
 | 状態管理 | Zustand | 5画面をまたぐ大きなデータ（Blob）を再レンダリングなしで管理 |
 | テキスト生成 | OpenAI GPT-4o | 日本語品質・system prompt による安全制御 |
-| 音声合成 | VoiceText (HOYA) | 日本語特化・完全無料・プロバイダーから独立して差し替え可能 |
+| 音声合成 | OpenAI TTS | 本番設計と同一・プロバイダー切替で Azure も検証可能 |
 | 動画生成 | ffmpeg.wasm | ブラウザ内完結・顔写真のサーバー送信ゼロ（プライバシー優先） |
-| ストレージ | Vercel Blob | 1リポジトリ完結・QR体験の再現 |
-| ホスティング | Vercel | Git push だけで CI/CD 完了 |
+| 実行環境 | ローカル PC（`npm run dev`） | 会場ブースごとに独立起動・公開ホスティング不要 |
 
 ---
 
@@ -81,17 +81,15 @@ QR コードで持ち帰れる体験アプリ。
 ├── ffmpeg.wasm        動画生成（ブラウザ内完結）
 └── Zustand            セッション状態管理
         │
-        │ HTTPS
+        │ localhost
         ▼
-Vercel API Routes（サーバーサイド）
+Next.js API Routes（同一 PC 上の開発サーバー）
 ├── POST /api/generate     GPT-4o → 未来ニュース原稿
-├── POST /api/tts          VoiceText (HOYA) → 音声wav
-└── POST /api/upload       動画 → Vercel Blob → 公開URL
+└── POST /api/tts          OpenAI TTS → 音声 mp3
         │
         ▼
-Vercel Blob
-└── 動画ファイル（mp4）
-      → 公開URL → QRコード → ユーザースマホ
+結果画面（/result）
+└── 動画ファイル（mp4/webm）をこの PC にダウンロード
 ```
 
 ### 本番構成（移行計画）
@@ -127,11 +125,10 @@ abc-ai-newscaster/
 │   │   ├── camera/page.tsx            # STEP 2: カメラ撮影
 │   │   ├── generating/page.tsx        # STEP 3: AI生成待機
 │   │   ├── preview/page.tsx           # STEP 4: プレビュー・音声再生
-│   │   ├── result/page.tsx            # STEP 5: QRコード・DL
+│   │   ├── result/page.tsx            # STEP 5: 動画ダウンロード
 │   │   └── api/
 │   │       ├── generate/route.ts      # 原稿生成API
-│   │       ├── tts/route.ts           # 音声合成API
-│   │       └── upload/route.ts        # Vercel Blob アップロード
+│   │       └── tts/route.ts           # 音声合成API
 │   │
 │   ├── components/
 │   │   ├── ui/                        # shadcn/ui 自動生成
@@ -158,7 +155,10 @@ abc-ai-newscaster/
 │   │   │   ├── azure.ts               # Azure OpenAI（スタブ）
 │   │   │   └── bedrock.ts             # Amazon Bedrock（スタブ）
 │   │   ├── tts/
-│   │   │   └── voicetext.ts           # VoiceText (HOYA)
+│   │   │   ├── index.ts               # プロバイダー振り分け
+│   │   │   ├── openai.ts              # OpenAI TTS
+│   │   │   ├── azure.ts               # Azure OpenAI TTS
+│   │   │   └── mock.ts                # デモ用固定音声
 │   │   ├── video/
 │   │   │   ├── index.ts               # 方針振り分け
 │   │   │   ├── ffmpegVideo.ts         # 方針A: ffmpeg.wasm
@@ -178,7 +178,6 @@ abc-ai-newscaster/
 │   └── prototype-to-production.md    # 本番移行計画
 │
 ├── .env.local.example
-├── vercel.json
 ├── next.config.ts
 ├── tailwind.config.ts
 └── README.md
@@ -191,9 +190,8 @@ abc-ai-newscaster/
 ### 必要なもの
 
 - Node.js 20以上
-- カメラ付きデバイス（Webカメラ）
-- OpenAI API Key
-- VoiceText API Key
+- カメラ付き PC（Webカメラ）
+- OpenAI API Key（デモモード時は不要）
 
 ### 手順
 
@@ -239,14 +237,12 @@ AWS_SECRET_ACCESS_KEY=
 AWS_REGION=ap-northeast-1
 BEDROCK_MODEL_ID=anthropic.claude-3-5-sonnet-20241022-v2:0
 
-# ─── VoiceText (HOYA) ─────────────────────────────
-# https://voicetext.jp/webapi から取得
-VOICETEXT_API_KEY=
-VOICETEXT_SPEAKER=haruka   # show | haruka | hikari | bear | takeru
-
-# ─── Vercel Blob ──────────────────────────────────
-# Vercel 管理画面 → Storage → Blob から取得
-BLOB_READ_WRITE_TOKEN=vercel_blob_rw_...
+# ─── TTS プロバイダー選択 ─────────────────────────
+# openai | azure
+TTS_PROVIDER=openai
+OPENAI_TTS_MODEL=tts-1
+OPENAI_TTS_VOICE=nova
+OPENAI_TTS_SPEED=0.95
 
 # ─── 動画生成方針 ─────────────────────────────────
 # ffmpeg | mediarecorder | fallback
@@ -286,10 +282,8 @@ DEMO_MOCK_TTS=true      # TTS を固定サンプル音声に差し替え
 | サービス | 取得先 |
 |---------|--------|
 | OpenAI | [https://platform.openai.com/api-keys](https://platform.openai.com/api-keys) |
-| VoiceText (HOYA) | [https://voicetext.jp/webapi](https://voicetext.jp/webapi) |
 | Azure OpenAI | Azure Portal → Azure OpenAI |
 | Amazon Bedrock | AWS Console → Bedrock → Model access |
-| Vercel Blob | Vercel Dashboard → Storage → Create Blob Store |
 
 ---
 
@@ -354,27 +348,8 @@ DEMO_MOCK_TTS=true      # TTS を固定サンプル音声に差し替え
 
 **Response 200**
 ```
-Content-Type: audio/wav
+Content-Type: audio/mpeg
 （音声バイナリ）
-```
-
----
-
-### `POST /api/upload`
-
-動画を Vercel Blob にアップロードし、公開URLを返す。
-
-**Request**
-```
-Content-Type: multipart/form-data
-video: <mp4 ファイル>
-```
-
-**Response 200**
-```json
-{
-  "url": "https://xxxx.public.blob.vercel-storage.com/video-abc123.mp4"
-}
 ```
 
 ---
@@ -422,10 +397,10 @@ OpenAI / Azure OpenAI / Amazon Bedrock を切り替えられる。
 
 | 変更点 | プロトタイプ | 本番 | 移行コスト |
 |--------|------------|------|-----------|
-| バックエンド | Vercel API Routes | FastAPI + AWS Lambda | 低（URLの差し替えのみ） |
-| 音声合成 | VoiceText (HOYA) | OpenAI TTS | 最小（1ファイルの差し替え） |
+| バックエンド | Next.js API Routes（ローカル） | FastAPI + AWS Lambda | 低（URLの差し替えのみ） |
+| 音声合成 | OpenAI TTS | OpenAI TTS | なし |
 | 動画生成 | ffmpeg.wasm（ブラウザ） | ffmpeg（Lambda） | 低（コマンド引数は同一） |
-| 動画配信 | Vercel Blob | S3 + CloudFront | 中（インフラ設定が必要） |
+| 動画配信 | ブラウザ直接 DL | S3 + CloudFront + QR | 中（インフラ設定が必要） |
 
 詳細は [`docs/prototype-to-production.md`](./docs/prototype-to-production.md) を参照。
 
@@ -442,14 +417,11 @@ OpenAI / Azure OpenAI / Amazon Bedrock を切り替えられる。
   `VIDEO_MODE=ffmpeg` を使用する場合、SharedArrayBuffer のために  
   `Cross-Origin-Opener-Policy: same-origin` と  
   `Cross-Origin-Embedder-Policy: require-corp` が必要。  
-  `vercel.json` に設定済みだが、外部フォント等のリソースに影響する場合がある。
+  `next.config.ts` に設定済みだが、外部フォント等のリソースに影響する場合がある。
 
 - **Azure OpenAI / Amazon Bedrock はスタブ実装**  
   現在 `AI_PROVIDER=openai` のみ動作確認済み。  
   Azure・Bedrock はインターフェースのみ実装しており、APIキー設定で有効化できる設計になっている。
-
-- **VoiceText は日本語のみ対応**  
-  本プロトタイプは日本語専用のため問題なし。
 
 - **カメラ使用には HTTPS 環境が必要**  
   `localhost` は HTTP でも動作する。

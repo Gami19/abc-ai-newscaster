@@ -11,7 +11,6 @@ type SessionState = {
   videoBlob: Blob | null;
   videoMimeType: string | null;
   videoMode: VideoMode | null;
-  blobUrl: string | null;
   dreamCategory: DreamCategory | null;
   broadcastPhase: BroadcastPhase;
   highlightIndex: number;
@@ -22,7 +21,6 @@ type SessionState = {
   setCanvasImage: (blob: Blob) => void;
   setVideo: (blob: Blob, mimeType: string) => void;
   setVideoMode: (mode: VideoMode) => void;
-  setBlobUrl: (url: string) => void;
   setDreamCategory: (category: DreamCategory) => void;
   setBroadcastPhase: (phase: BroadcastPhase) => void;
   setHighlightIndex: (index: number) => void;
@@ -38,7 +36,6 @@ const initialState = {
   videoBlob: null,
   videoMimeType: null,
   videoMode: null,
-  blobUrl: null,
   dreamCategory: null as DreamCategory | null,
   broadcastPhase: "idle" as BroadcastPhase,
   highlightIndex: -1,
@@ -53,7 +50,6 @@ export const useSessionStore = create<SessionState>((set) => ({
   setCanvasImage: (blob) => set({ canvasImageBlob: blob }),
   setVideo: (blob, mimeType) => set({ videoBlob: blob, videoMimeType: mimeType }),
   setVideoMode: (mode) => set({ videoMode: mode }),
-  setBlobUrl: (url) => set({ blobUrl: url }),
   setDreamCategory: (category) => set({ dreamCategory: category }),
   setBroadcastPhase: (phase) => set({ broadcastPhase: phase }),
   setHighlightIndex: (index) => set({ highlightIndex: index }),

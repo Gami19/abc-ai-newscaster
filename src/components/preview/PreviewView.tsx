@@ -33,7 +33,6 @@ export function PreviewView() {
   const setCanvasImage = useSessionStore((s) => s.setCanvasImage);
   const setVideo = useSessionStore((s) => s.setVideo);
   const setVideoMode = useSessionStore((s) => s.setVideoMode);
-  const setBlobUrl = useSessionStore((s) => s.setBlobUrl);
   const setBroadcastPhase = useSessionStore((s) => s.setBroadcastPhase);
   const setHighlightIndex = useSessionStore((s) => s.setHighlightIndex);
 
@@ -94,22 +93,6 @@ export function PreviewView() {
     [setCanvasImage]
   );
 
-  const uploadVideo = async (blob: Blob, mimeType: string) => {
-    const formData = new FormData();
-    const extension = mimeType.includes("webm") ? "webm" : "mp4";
-    formData.append("file", blob, `abc-news-2035.${extension}`);
-
-    const response = await fetch("/api/upload", {
-      method: "POST",
-      body: formData,
-    });
-
-    if (!response.ok) return null;
-
-    const data = (await response.json()) as { url: string };
-    return data.url;
-  };
-
   const handleGenerateVideo = async () => {
     const canvas = canvasRef.current?.getCanvas();
     const imageBlob = canvasImageBlobRef.current;
@@ -141,9 +124,6 @@ export function PreviewView() {
       setVideoMode(
         output.mimeType.includes("mp4") ? "ffmpeg" : "mediarecorder"
       );
-
-      const url = await uploadVideo(output.blob, output.mimeType);
-      if (url) setBlobUrl(url);
 
       router.push("/result");
     } catch (error) {
