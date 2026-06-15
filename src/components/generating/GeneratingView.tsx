@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { motion } from "framer-motion";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 
 import { FutureRadar } from "@/components/generating/FutureRadar";
@@ -16,7 +16,19 @@ import type { GenerateScriptOutput, UserInput } from "@/types";
 type StepStatus = "pending" | "active" | "done";
 
 const RETRY_DELAY_MS = 2000;
-const COMPLETE_DELAY_MS = 600;
+const COMPLETE_DELAY_MS = 800;
+
+const SCRIPT_MESSAGES: Record<StepStatus, string> = {
+  pending: "つぎは、ニュースの原稿をつくるよ",
+  active: "ニュースの原稿をつくってるよ…",
+  done: "原稿、できた！",
+};
+
+const TTS_MESSAGES: Record<StepStatus, string> = {
+  pending: "つぎは、キャスターの声を準備するよ",
+  active: "キャスターの声を準備してるよ…",
+  done: "声の準備、OK！",
+};
 
 async function fetchScript(
   userInput: UserInput
@@ -54,35 +66,60 @@ function sleep(ms: number): Promise<void> {
 }
 
 function StatusLine({
-  label,
+  message,
   status,
 }: {
-  label: string;
+  message: string;
   status: StepStatus;
 }) {
   return (
-    <p className="flex items-center gap-2 text-sm text-abc-charcoal">
+    <motion.p
+      layout
+      className="flex items-center gap-3 rounded-lg bg-muted/40 px-3 py-2.5 text-base text-abc-charcoal"
+      aria-live={status === "active" ? "polite" : undefined}
+    >
       {status === "done" ? (
-        <span aria-hidden>✅</span>
+        <span className="text-xl" aria-hidden>
+          ✅
+        </span>
       ) : status === "active" ? (
         <motion.span
-          animate={{ opacity: [0.3, 1, 0.3] }}
+          animate={{ rotate: [0, 10, -10, 0] }}
           transition={{ duration: 1.2, repeat: Infinity }}
+          className="text-xl"
           aria-hidden
         >
-          ⏳
+          ✨
         </motion.span>
       ) : (
-        <span className="text-abc-gray" aria-hidden>
-          ○
+        <span className="text-lg text-abc-gray" aria-hidden>
+          ⏸️
         </span>
       )}
-      <span>
-        {label}
-        {status === "active" ? "生成中・・・" : ""}
-      </span>
-    </p>
+      <span className="leading-snug">{message}</span>
+    </motion.p>
   );
+}
+
+function getHeadline(
+  name: string,
+  scriptStatus: StepStatus,
+  ttsStatus: StepStatus
+): string {
+  if (scriptStatus !== "done") {
+    return `${name}さんの\nnews おかえり 2035を\nつくってるよ！`;
+  }
+  if (ttsStatus !== "done") {
+    return `もうすこし！\nキャスターの声を\n準備してるよ…`;
+  }
+  return `できた！\n放送室へ向かうよ…`;
+}
+
+function getEncouragement(progress: number): string {
+  if (progress < 30) return "2035年の世界をえがいてるよ…";
+  if (progress < 55) return "きみの夢をニュースにしてるよ…";
+  if (progress < 90) return "キャスターの声を録音してるよ…";
+  return "まもなく完成！";
 }
 
 export function GeneratingView() {
@@ -93,11 +130,33 @@ export function GeneratingView() {
   const setDreamCategory = useSessionStore((s) => s.setDreamCategory);
   const setAudio = useSessionStore((s) => s.setAudio);
 
-  const [progress, setProgress] = useState(0);
+  const [progress, setProgress] = useState(8);
   const [scriptStatus, setScriptStatus] = useState<StepStatus>("active");
   const [ttsStatus, setTtsStatus] = useState<StepStatus>("pending");
   const [ttsError, setTtsError] = useState<string | null>(null);
   const hasStarted = useRef(false);
+
+  const casterName = userInput?.name ?? "きみ";
+
+  useEffect(() => {
+    if (scriptStatus !== "active") return;
+
+    const id = setInterval(() => {
+      setProgress((current) => Math.min(current + 1, 48));
+    }, 350);
+
+    return () => clearInterval(id);
+  }, [scriptStatus]);
+
+  useEffect(() => {
+    if (ttsStatus !== "active") return;
+
+    const id = setInterval(() => {
+      setProgress((current) => Math.min(current + 1, 92));
+    }, 400);
+
+    return () => clearInterval(id);
+  }, [ttsStatus]);
 
   useEffect(() => {
     if (hasStarted.current) return;
@@ -107,11 +166,13 @@ export function GeneratingView() {
     }
 
     hasStarted.current = true;
+    setProgress(12);
 
     const run = async () => {
       let result = await fetchScript(userInput);
 
       if (!result) {
+        setProgress(25);
         await sleep(RETRY_DELAY_MS);
         result = await fetchScript(userInput);
       }
@@ -128,14 +189,16 @@ export function GeneratingView() {
 
       setScript(script);
       setScriptStatus("done");
-      setProgress(50);
+      setProgress(55);
       setTtsStatus("active");
 
       const audioBlob = await fetchAudio(script);
 
       if (!audioBlob) {
         setTtsStatus("pending");
-        setTtsError("もう一度ためしてね！");
+        setTtsError(
+          "ごめんね、声の準備がうまくいかなかったよ。もう一度やってみてね！"
+        );
         return;
       }
 
@@ -150,19 +213,40 @@ export function GeneratingView() {
     void run();
   }, [userInput, photoBase64, router, setScript, setDreamCategory, setAudio]);
 
+  const headline = useMemo(
+    () => getHeadline(casterName, scriptStatus, ttsStatus),
+    [casterName, scriptStatus, ttsStatus]
+  );
+
+  const encouragement = useMemo(() => getEncouragement(progress), [progress]);
+
   if (ttsError) {
     return (
       <Card className="border-border shadow-sm">
         <CardContent className="space-y-6 py-10 text-center">
-          <p className="text-base text-abc-charcoal">{ttsError}</p>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => router.push("/")}
-            className="h-12"
-          >
-            もどる
-          </Button>
+          <p className="text-4xl" aria-hidden>
+            😢
+          </p>
+          <p className="text-base leading-relaxed text-abc-charcoal">
+            {ttsError}
+          </p>
+          <div className="flex flex-col gap-3">
+            <Button
+              type="button"
+              onClick={() => router.push("/camera")}
+              className="h-12 bg-abc-red text-white hover:bg-abc-red/90"
+            >
+              もう一度ためす
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => router.push("/")}
+              className="h-12"
+            >
+              最初からやりなおす
+            </Button>
+          </div>
         </CardContent>
       </Card>
     );
@@ -175,38 +259,38 @@ export function GeneratingView() {
       transition={{ duration: 0.4 }}
     >
       <Card className="border-border shadow-sm">
-        <CardContent className="space-y-8 py-8">
-          <h1 className="text-center text-2xl font-bold text-abc-charcoal">
-            news おかえり 2035年版、
-            <br />
-            せいさく中...
-          </h1>
+        <CardContent className="space-y-6 py-8">
+          <AnimatePresence mode="wait">
+            <motion.h1
+              key={headline}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.35 }}
+              className="whitespace-pre-line text-center text-xl font-bold leading-snug text-abc-charcoal sm:text-2xl"
+            >
+              {headline}
+            </motion.h1>
+          </AnimatePresence>
 
           <FutureRadar />
 
           <div className="space-y-2">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.3 }}
-            >
-              <Progress value={progress} className="h-3 bg-muted" />
-            </motion.div>
-            <p className="text-center text-sm font-medium text-abc-gray">
-              {progress}%
-            </p>
+            <Progress value={progress} className="h-4 bg-muted" />
+            <div className="flex items-center justify-between text-sm">
+              <p className="font-medium text-abc-orange">{encouragement}</p>
+              <p className="font-bold text-abc-charcoal">{progress}%</p>
+            </div>
           </div>
 
           <div className="space-y-2">
-            <StatusLine
-              label="きみのニュース原稿を ABCフォーマットで生成中"
-              status={scriptStatus}
-            />
-            <StatusLine
-              label="ABCキャスター風の声でよみあげの準備中"
-              status={ttsStatus}
-            />
+            <StatusLine message={SCRIPT_MESSAGES[scriptStatus]} status={scriptStatus} />
+            <StatusLine message={TTS_MESSAGES[ttsStatus]} status={ttsStatus} />
           </div>
+
+          <p className="text-center text-sm text-abc-gray">
+            ちょっと待ってね。できたら自動でつぎへ進むよ 📺
+          </p>
         </CardContent>
       </Card>
     </motion.div>
