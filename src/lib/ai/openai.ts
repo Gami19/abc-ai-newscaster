@@ -1,7 +1,13 @@
 import OpenAI from "openai";
 
 import { parseGenerateScriptResponse } from "@/lib/ai/parseScriptResponse";
-import { buildUserPrompt, SYSTEM_PROMPT } from "@/lib/prompts/newsScript";
+import {
+  buildSystemPrompt,
+  buildUserPrompt,
+  FEWSHOT_USER,
+  getFewShotAssistant,
+  gradeToGroup,
+} from "@/lib/prompts/newsScript";
 import type { AIProviderInterface, GenerateScriptInput, GenerateScriptResult } from "@/types";
 
 function getClient(): OpenAI {
@@ -16,12 +22,15 @@ export async function generateScript(
   input: GenerateScriptInput
 ): Promise<GenerateScriptResult> {
   const client = getClient();
+  const group = gradeToGroup(input.grade);
 
   const completion = await client.chat.completions.create({
     model: "gpt-4o",
     messages: [
-      { role: "system", content: SYSTEM_PROMPT },
-      { role: "user", content: buildUserPrompt(input) },
+      { role: "system", content: buildSystemPrompt(group) },
+      { role: "user", content: FEWSHOT_USER },
+      { role: "assistant", content: getFewShotAssistant(group) },
+      { role: "user", content: buildUserPrompt(input, group) },
     ],
     response_format: { type: "json_object" },
   });

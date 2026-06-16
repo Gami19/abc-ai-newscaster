@@ -7,7 +7,8 @@ export function buildDefaultScript(input: UserInput): string {
 2035年、${input.name}さんの夢である${input.dream}が
 大きな成果を上げました。
 専門家によると、${input.name}さんが
-いつも楽しんでいる${input.hobby}が
+いつも楽しんでいる${input.hobby}と、
+${input.effort}が
 その成功のカギになったそうです。
 ${input.name}さん、これからもがんばってね。
 以上、ABCニュースでお伝えしました。

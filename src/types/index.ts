@@ -1,8 +1,11 @@
+export type GradeGroup = "A" | "B" | "C";
+
 export type UserInput = {
   name: string;
   grade: string;
   dream: string;
   hobby: string;
+  effort: string;
 };
 
 export type GenerateRequestBody = UserInput;
