@@ -3,9 +3,13 @@ import {
   easeOutBounce,
   easeOutCubic,
 } from "@/lib/utils/easing";
+import { drawNewsHeader } from "@/lib/canvas/newsHeader";
 
 const CANVAS_WIDTH = 1280;
 const CANVAS_HEIGHT = 720;
+
+/** 録画開始直後に Canvas アニメを止めておく秒数 */
+export const INTRO_ANIMATION_HOLD_SEC = 1.0;
 
 function drawIntroBackground(ctx: CanvasRenderingContext2D) {
   const gradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
@@ -111,12 +115,16 @@ export function renderIntroFrame(
   ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
   drawIntroBackground(ctx);
-  drawIntroSpotlight(ctx, elapsed);
-  drawRotatingRays(ctx, elapsed);
-  drawNewsIcon(ctx, elapsed, newsIconImage);
+  drawNewsHeader(ctx);
 
-  drawSlideText(ctx, elapsed, 2.0, 0.5, 7.5, 8.0, () => {
-    const progress = easeOutCubic(clamp((elapsed - 2.0) / 0.5, 0, 1));
+  const animElapsed = Math.max(0, elapsed - INTRO_ANIMATION_HOLD_SEC);
+
+  drawIntroSpotlight(ctx, animElapsed);
+  drawRotatingRays(ctx, animElapsed);
+  drawNewsIcon(ctx, animElapsed, newsIconImage);
+
+  drawSlideText(ctx, animElapsed, 2.0, 0.5, 7.5, 8.0, () => {
+    const progress = easeOutCubic(clamp((animElapsed - 2.0) / 0.5, 0, 1));
     const x = -300 + 300 * progress;
     ctx.fillStyle = "#FFFFFF";
     ctx.font = "bold 52px sans-serif";
@@ -125,8 +133,8 @@ export function renderIntroFrame(
     ctx.fillText("news おかえり", x + 300, 480);
   });
 
-  drawSlideText(ctx, elapsed, 2.2, 0.5, 7.5, 8.0, () => {
-    const progress = easeOutCubic(clamp((elapsed - 2.2) / 0.5, 0, 1));
+  drawSlideText(ctx, animElapsed, 2.2, 0.5, 7.5, 8.0, () => {
+    const progress = easeOutCubic(clamp((animElapsed - 2.2) / 0.5, 0, 1));
     const x = 1280 - (1280 - 750) * progress;
     ctx.fillStyle = "#FF8C00";
     ctx.font = "bold 80px sans-serif";
@@ -135,8 +143,8 @@ export function renderIntroFrame(
     ctx.fillText("2035", x, 500);
   });
 
-  drawSlideText(ctx, elapsed, 4.0, 0.5, 7.5, 8.0, () => {
-    const progress = easeOutCubic(clamp((elapsed - 4.0) / 0.5, 0, 1));
+  drawSlideText(ctx, animElapsed, 4.0, 0.5, 7.5, 8.0, () => {
+    const progress = easeOutCubic(clamp((animElapsed - 4.0) / 0.5, 0, 1));
     const y = 560 + 20 * (1 - progress);
     ctx.fillStyle = "#FFFFFF";
     ctx.font = "26px sans-serif";

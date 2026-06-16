@@ -33,6 +33,9 @@ export async function createAudioMixer(
   const soundtrackGain = audioCtx.createGain();
   soundtrackGain.gain.value = 0;
 
+  const monitorGain = audioCtx.createGain();
+  monitorGain.gain.value = 0;
+
   const micGain = audioCtx.createGain();
   micGain.gain.value = 0;
 
@@ -43,6 +46,8 @@ export async function createAudioMixer(
 
   soundtrackSource.connect(soundtrackGain);
   soundtrackGain.connect(destination);
+  soundtrackGain.connect(monitorGain);
+  monitorGain.connect(audioCtx.destination);
 
   if (microphoneStream && microphoneStream.getAudioTracks().length > 0) {
     try {
@@ -77,12 +82,14 @@ export async function createAudioMixer(
       }
       soundtrackSource.start(0);
       soundtrackGain.gain.setValueAtTime(1.0, audioCtx.currentTime);
+      monitorGain.gain.setValueAtTime(0.55, audioCtx.currentTime);
     },
 
     fadeToMic(duration: number) {
       if (stopped) return;
       const t = audioCtx.currentTime;
       soundtrackGain.gain.linearRampToValueAtTime(0.0, t + duration);
+      monitorGain.gain.linearRampToValueAtTime(0.0, t + duration);
       micGain.gain.linearRampToValueAtTime(1.0, t + duration);
       togetherGain.gain.linearRampToValueAtTime(0.3, t + duration);
     },

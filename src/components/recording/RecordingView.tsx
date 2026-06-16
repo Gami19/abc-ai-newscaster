@@ -8,7 +8,7 @@ import {
   type NewsCanvasHandle,
 } from "@/components/canvas/NewsCanvas";
 import { AudioVisualizer } from "@/components/recording/AudioVisualizer";
-import { IntroOverlay } from "@/components/recording/IntroOverlay";
+import { IntroOverlay, IntroRecBadge } from "@/components/recording/IntroOverlay";
 import { KaraokeScript } from "@/components/preview/KaraokeScript";
 import { OnAirHeader } from "@/components/preview/OnAirHeader";
 import { ModeSelector } from "@/components/recording/ModeSelector";
@@ -99,6 +99,11 @@ export function RecordingView() {
     introStartTime != null &&
     soundtrackDuration != null;
 
+  const showLiveHeader =
+    broadcastPhase === "intro" ||
+    broadcastPhase === "fade" ||
+    broadcastPhase === "onair";
+
   return (
     <div className="space-y-4">
       {broadcastPhase === "choosing" ? (
@@ -115,32 +120,34 @@ export function RecordingView() {
         />
       ) : null}
 
-      {broadcastPhase === "onair" ? (
-        <OnAirHeader isOnAir={isRecording} />
-      ) : null}
+      {showLiveHeader ? <OnAirHeader isOnAir={isRecording} /> : null}
 
       {showRecordingCanvas ? (
         <div
           className={cn(
-            "relative w-full",
+            "space-y-3",
             broadcastPhase === "countdown" &&
               "pointer-events-none absolute h-0 w-0 overflow-hidden opacity-0"
           )}
         >
-          <NewsCanvas
-            ref={canvasRef}
-            mode="live"
-            videoStream={videoStream}
-            enablePreviewLoop={false}
-            scriptText={scriptText}
-            userName={userInput?.name ?? ""}
-            dreamCategory={resolvedCategory}
-            dreamText={userInput?.dream ?? ""}
-            canvasModeRef={canvasModeRef}
-            introStartTimeRef={introStartTimeRef}
-            fadeStartTimeRef={fadeStartTimeRef}
-            newsIconImageRef={newsIconImageRef}
-          />
+          <div className="relative w-full">
+            <NewsCanvas
+              ref={canvasRef}
+              mode="live"
+              videoStream={videoStream}
+              enablePreviewLoop={false}
+              scriptText={scriptText}
+              userName={userInput?.name ?? ""}
+              dreamCategory={resolvedCategory}
+              dreamText={userInput?.dream ?? ""}
+              canvasModeRef={canvasModeRef}
+              introStartTimeRef={introStartTimeRef}
+              fadeStartTimeRef={fadeStartTimeRef}
+              newsIconImageRef={newsIconImageRef}
+            />
+
+            {showIntroOverlay ? <IntroRecBadge /> : null}
+          </div>
 
           {showIntroOverlay ? (
             <IntroOverlay
