@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from "react"
 
 import type { NewsCanvasHandle } from "@/components/canvas/NewsCanvas";
 import {
-  startAudioHighlightSync,
+  bindAudioHighlightSync,
   startElapsedHighlightSync,
 } from "@/lib/karaoke/karaokeHighlightSync";
 import {
@@ -51,6 +51,9 @@ export function useRecordingExperience({
 
   const [countdownValue, setCountdownValue] = useState<number | null>(null);
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
+  const [recordedDurationMs, setRecordedDurationMs] = useState<number | null>(
+    null
+  );
   const [isRecording, setIsRecording] = useState(false);
   const [newsIconLoaded, setNewsIconLoaded] = useState(false);
   const [isPreparingCountdown, setIsPreparingCountdown] = useState(false);
@@ -71,6 +74,7 @@ export function useRecordingExperience({
   const fadeStartTimeRef = useRef<number | null>(null);
   const newsIconImageRef = useRef<HTMLImageElement | null>(null);
   const guideAudioElementRef = useRef<HTMLAudioElement | null>(null);
+  const syncGuideAudioElementRef = useRef<HTMLAudioElement | null>(null);
   const guideAudioUrlRef = useRef<string | null>(null);
 
   const segments = scriptText
@@ -91,6 +95,10 @@ export function useRecordingExperience({
     if (guideAudioElementRef.current) {
       guideAudioElementRef.current.pause();
       guideAudioElementRef.current = null;
+    }
+    if (syncGuideAudioElementRef.current) {
+      syncGuideAudioElementRef.current.pause();
+      syncGuideAudioElementRef.current = null;
     }
     if (guideAudioUrlRef.current) {
       URL.revokeObjectURL(guideAudioUrlRef.current);
@@ -140,14 +148,25 @@ export function useRecordingExperience({
     setHighlightIndex,
   ]);
 
-  const createGuideAudioElement = useCallback((): HTMLAudioElement | null => {
+  const createGuideAudioElements = useCallback((): {
+    mixerAudio: HTMLAudioElement;
+    syncAudio: HTMLAudioElement;
+  } | null => {
     if (!audioBlob) return null;
     cleanupGuideAudio();
     const url = URL.createObjectURL(audioBlob);
     guideAudioUrlRef.current = url;
-    const audio = new Audio(url);
-    guideAudioElementRef.current = audio;
-    return audio;
+
+    const mixerAudio = new Audio(url);
+    mixerAudio.preload = "auto";
+    guideAudioElementRef.current = mixerAudio;
+
+    const syncAudio = new Audio(url);
+    syncAudio.preload = "auto";
+    syncAudio.muted = true;
+    syncGuideAudioElementRef.current = syncAudio;
+
+    return { mixerAudio, syncAudio };
   }, [audioBlob, cleanupGuideAudio]);
 
   const playGuideAudioAfterIntro = useCallback(async () => {
@@ -177,18 +196,28 @@ export function useRecordingExperience({
       return;
     }
 
-    const audio = guideAudioElementRef.current ?? audioRef.current;
-    if (!audio) return;
+    const mixerAudio = guideAudioElementRef.current;
+    const syncAudio =
+      syncGuideAudioElementRef.current ?? mixerAudio ?? audioRef.current;
+    if (!syncAudio) return;
 
-    audio.currentTime = 0;
+    mixerAudio?.pause();
+    syncAudio.pause();
+    if (mixerAudio) mixerAudio.currentTime = 0;
+    syncAudio.currentTime = 0;
 
     try {
-      await audio.play();
-      stopHighlightSyncRef.current = startAudioHighlightSync(
-        audio,
+      stopHighlightSyncRef.current = bindAudioHighlightSync(
+        syncAudio,
         segments,
         setHighlightIndex
       );
+
+      if (mixerAudio && mixerAudio !== syncAudio) {
+        await Promise.all([mixerAudio.play(), syncAudio.play()]);
+      } else {
+        await syncAudio.play();
+      }
     } catch (err) {
       console.warn("[useRecordingExperience] guide audio play failed", err);
     }
@@ -232,8 +261,8 @@ export function useRecordingExperience({
       let ttsElement: HTMLAudioElement | undefined;
 
       if (mode === "together" && !useBrowserSpeech && audioBlob) {
-        const guideAudio = createGuideAudioElement();
-        ttsElement = guideAudio ?? undefined;
+        const guideAudio = createGuideAudioElements();
+        ttsElement = guideAudio?.mixerAudio;
       }
 
       const mixer = await createAudioMixer({
@@ -325,7 +354,7 @@ export function useRecordingExperience({
     cleanupAudioMixer,
     cleanupGuideAudio,
     clearCountdownTimers,
-    createGuideAudioElement,
+    createGuideAudioElements,
     isPreparingCountdown,
     playChime,
     playGuideAudioAfterIntro,
@@ -349,14 +378,14 @@ export function useRecordingExperience({
     speechHandleRef.current?.stop();
     speechHandleRef.current = null;
 
-    const audio = guideAudioElementRef.current ?? audioRef.current;
-    if (audio) {
-      audio.pause();
-    }
+    guideAudioElementRef.current?.pause();
+    syncGuideAudioElementRef.current?.pause();
+    audioRef.current?.pause();
 
     try {
-      const blob = await handle.stop();
+      const { blob, durationMs } = await handle.stop();
       setRecordedBlob(blob);
+      setRecordedDurationMs(durationMs);
       setBroadcastPhase("review");
       setHighlightIndex(-1);
     } catch (err) {
@@ -375,6 +404,7 @@ export function useRecordingExperience({
 
   const retake = useCallback(() => {
     setRecordedBlob(null);
+    setRecordedDurationMs(null);
     recordingHandleRef.current = null;
     speechHandleRef.current?.stop();
     speechHandleRef.current = null;
@@ -415,6 +445,7 @@ export function useRecordingExperience({
     recordingMode,
     countdownValue,
     recordedBlob,
+    recordedDurationMs,
     isRecording,
     karaokeSegments,
     highlightIndex,

@@ -3,6 +3,8 @@ import type { MutableRefObject, RefObject } from "react";
 import { safePlayVideo } from "@/lib/audio/safePlay";
 import type { AudioMixer, DrawFrameCallback, NewsCanvasMode } from "@/types";
 
+import { fixRecordedWebm } from "./fixRecordedWebm";
+
 const PREFERRED_MIME = "video/webm;codecs=vp8,opus";
 const FALLBACK_MIMES = ["video/webm", "video/webm;codecs=vp9,opus", ""];
 
@@ -34,8 +36,13 @@ export type StartLiveRecordingParams = {
   onIntroEnd: () => void;
 };
 
+export type LiveRecordingResult = {
+  blob: Blob;
+  durationMs: number;
+};
+
 export type LiveRecordingHandle = {
-  stop: () => Promise<Blob>;
+  stop: () => Promise<LiveRecordingResult>;
 };
 
 export function startLiveRecording(
@@ -73,6 +80,7 @@ export function startLiveRecording(
   let stopped = false;
   let introEndTimer: ReturnType<typeof setTimeout> | null = null;
   let fadeCompleteTimer: ReturnType<typeof setTimeout> | null = null;
+  let recordingStartedAt = 0;
 
   const mimeType = resolveMimeType();
 
@@ -108,7 +116,8 @@ export function startLiveRecording(
       }
     };
 
-    recorder.start(100);
+    recordingStartedAt = performance.now();
+    recorder.start();
     audioMixer.startSoundtrack();
 
     introEndTimer = setTimeout(() => {
@@ -132,7 +141,7 @@ export function startLiveRecording(
 
   return {
     stop: () =>
-      new Promise<Blob>((resolve, reject) => {
+      new Promise<LiveRecordingResult>((resolve, reject) => {
         void startPromise
           .then(() => {
             stopped = true;
@@ -148,10 +157,21 @@ export function startLiveRecording(
             }
 
             recorder.onstop = () => {
-              const type = mimeType || "video/webm";
-              resolve(new Blob(chunks, { type }));
+              void (async () => {
+                const type = mimeType || "video/webm";
+                const rawBlob = new Blob(chunks, { type });
+                const durationMs =
+                  recordingStartedAt > 0
+                    ? performance.now() - recordingStartedAt
+                    : 0;
+                const blob = await fixRecordedWebm(rawBlob, durationMs);
+                resolve({ blob, durationMs });
+              })();
             };
 
+            if (recorder.state === "recording") {
+              recorder.requestData();
+            }
             recorder.stop();
           })
           .catch(reject);

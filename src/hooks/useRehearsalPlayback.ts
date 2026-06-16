@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 
 import {
-  startAudioHighlightSync,
+  bindAudioHighlightSync,
   startElapsedHighlightSync,
 } from "@/lib/karaoke/karaokeHighlightSync";
 import {
@@ -95,12 +95,12 @@ export function useRehearsalPlayback({
     audio.currentTime = 0;
 
     try {
-      await safePlayAudio(audio);
-      stopHighlightSyncRef.current = startAudioHighlightSync(
+      stopHighlightSyncRef.current = bindAudioHighlightSync(
         audio,
         segments,
         setHighlightIndex
       );
+      await safePlayAudio(audio);
     } catch (err) {
       console.error("[useRehearsalPlayback] audio play failed", err);
       setPhase("ready");

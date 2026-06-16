@@ -47,6 +47,7 @@ export function RecordingView() {
     recordingMode,
     countdownValue,
     recordedBlob,
+    recordedDurationMs,
     isRecording,
     karaokeSegments,
     highlightIndex,
@@ -183,9 +184,12 @@ export function RecordingView() {
         </div>
       ) : null}
 
-      {broadcastPhase === "review" && recordedBlob ? (
+      {broadcastPhase === "review" &&
+      recordedBlob &&
+      recordedDurationMs != null ? (
         <RecordingReview
           videoBlob={recordedBlob}
+          durationMs={recordedDurationMs}
           onRetake={retake}
           onConfirm={confirmRecording}
         />
