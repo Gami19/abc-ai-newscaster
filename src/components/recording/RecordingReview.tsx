@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 
 import { Confetti } from "@/components/effects/Confetti";
 import { Button } from "@/components/ui/button";
+import { useBlobObjectUrl } from "@/hooks/useBlobObjectUrl";
 
 type RecordingReviewProps = {
   videoBlob: Blob;
@@ -19,14 +20,7 @@ export function RecordingReview({
   const [showConfetti, setShowConfetti] = useState(false);
   const [pendingConfirm, setPendingConfirm] = useState(false);
 
-  const videoUrl = useMemo(
-    () => URL.createObjectURL(videoBlob),
-    [videoBlob]
-  );
-
-  useEffect(() => {
-    return () => URL.revokeObjectURL(videoUrl);
-  }, [videoUrl]);
+  const videoUrl = useBlobObjectUrl(videoBlob);
 
   const handleConfirmClick = () => {
     setPendingConfirm(true);

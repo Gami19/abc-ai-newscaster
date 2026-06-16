@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 
 import {
@@ -9,6 +9,7 @@ import {
 } from "@/components/canvas/NewsCanvas";
 import { KaraokeScript } from "@/components/preview/KaraokeScript";
 import { Button } from "@/components/ui/button";
+import { useBlobObjectUrl } from "@/hooks/useBlobObjectUrl";
 import { useRehearsalPlayback } from "@/hooks/useRehearsalPlayback";
 import { detectCategory } from "@/lib/theme/dreamTheme";
 import { useSessionStore } from "@/lib/store/useSessionStore";
@@ -27,15 +28,9 @@ export function RehearsalView() {
   const canvasRef = useRef<NewsCanvasHandle>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
 
-  const audioUrl = useMemo(
-    () => (audioBlob ? URL.createObjectURL(audioBlob) : null),
-    [audioBlob]
+  const audioUrl = useBlobObjectUrl(
+    useBrowserSpeechForTts ? null : audioBlob
   );
-
-  useEffect(() => {
-    if (!audioUrl) return;
-    return () => URL.revokeObjectURL(audioUrl);
-  }, [audioUrl]);
 
   const {
     phase,
@@ -78,7 +73,7 @@ export function RehearsalView() {
         </p>
       ) : null}
 
-      <div className="mx-auto max-w-sm">
+      <div className="mx-auto max-w-lg">
         <NewsCanvas
           ref={canvasRef}
           mode="static"

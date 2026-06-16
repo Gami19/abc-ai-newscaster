@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 
 import {
@@ -14,6 +14,7 @@ import { ModeSelector } from "@/components/recording/ModeSelector";
 import { RecordingCountdown } from "@/components/recording/RecordingCountdown";
 import { RecordingReview } from "@/components/recording/RecordingReview";
 import { Button } from "@/components/ui/button";
+import { useBlobObjectUrl } from "@/hooks/useBlobObjectUrl";
 import { useRecordingExperience } from "@/hooks/useRecordingExperience";
 import { detectCategory } from "@/lib/theme/dreamTheme";
 import { cn } from "@/lib/utils";
@@ -36,15 +37,9 @@ export function RecordingView() {
   const audioRef = useRef<HTMLAudioElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
 
-  const audioUrl = useMemo(
-    () => (audioBlob ? URL.createObjectURL(audioBlob) : null),
-    [audioBlob]
+  const audioUrl = useBlobObjectUrl(
+    useBrowserSpeechForTts ? null : audioBlob
   );
-
-  useEffect(() => {
-    if (!audioUrl) return;
-    return () => URL.revokeObjectURL(audioUrl);
-  }, [audioUrl]);
 
   const {
     broadcastPhase,

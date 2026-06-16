@@ -68,7 +68,16 @@ async function fetchAudio(
     return { blob: null, useBrowserSpeech: true };
   }
 
-  return { blob: await response.blob(), useBrowserSpeech: false };
+  const rawBlob = await response.blob();
+  const contentType =
+    response.headers.get("Content-Type")?.split(";")[0]?.trim() ??
+    "audio/mpeg";
+  const blob =
+    rawBlob.type && rawBlob.type !== "application/octet-stream"
+      ? rawBlob
+      : new Blob([rawBlob], { type: contentType });
+
+  return { blob, useBrowserSpeech: false };
 }
 
 function sleep(ms: number): Promise<void> {
