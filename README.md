@@ -429,14 +429,3 @@ OpenAI / Azure OpenAI / Amazon Bedrock を切り替えられる。
 
 - **カメラ使用には HTTPS 環境が必要**  
   `localhost` は HTTP でも動作する。
-
----
-
-## 📄 関連ドキュメント
-
-| ドキュメント | 内容 |
-|------------|------|
-| [`docs/prototype-to-production.md`](./docs/prototype-to-production.md) | プロトタイプ → 本番構成の移行計画 |
-| [提案資料 PDF](./docs/proposal.pdf) | イベント施策コンセプト・体験フロー・アーキテクチャ設計 |
-
----
