@@ -78,9 +78,23 @@ export type BroadcastPhase =
   | "standby"
   | "choosing"
   | "countdown"
+  | "intro"
+  | "fade"
   | "onair"
   | "review"
   | "ended";
+
+export type NewsCanvasMode = "static" | "intro" | "fade" | "live";
+
+export type IntroPhase = "early" | "late" | "fading";
+
+export type AudioMixer = {
+  stream: MediaStream;
+  startSoundtrack: () => void;
+  fadeToMic: (duration: number) => void;
+  getSoundtrackDuration: () => number;
+  stop: () => void;
+};
 
 export type ScriptSegment = {
   text: string;

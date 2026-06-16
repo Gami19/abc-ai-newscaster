@@ -14,8 +14,17 @@ import {
   seededRandom,
   type DreamTheme,
 } from "@/lib/theme/dreamTheme";
+import { renderFadeFrame, renderIntroFrame } from "@/lib/canvas/introFrame";
+import {
+  clamp,
+} from "@/lib/utils/easing";
 import { safePlayVideo, stopVideoElement } from "@/lib/audio/safePlay";
-import type { DrawFrameCallback, DreamCategory } from "@/types";
+import type {
+  DrawFrameCallback,
+  DreamCategory,
+  NewsCanvasMode,
+} from "@/types";
+import type { MutableRefObject } from "react";
 
 const CANVAS_WIDTH = 1280;
 const CANVAS_HEIGHT = 720;
@@ -40,16 +49,23 @@ const TELOP_MARGIN = 0;
 
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"] as const;
 
+const INTRO_NEWS_ICON_SRC = "/intro/news-icon.png";
+
 type NewsCanvasProps = {
   scriptText: string;
   userName: string;
   dreamCategory: DreamCategory;
   dreamText?: string;
-  mode?: "static" | "live";
+  mode?: NewsCanvasMode;
   photoBase64?: string;
   videoStream?: MediaStream | null;
   enablePreviewLoop?: boolean;
   onReady?: (blob: Blob) => void;
+  canvasModeRef?: MutableRefObject<NewsCanvasMode>;
+  introStartTimeRef?: MutableRefObject<number | null>;
+  fadeStartTimeRef?: MutableRefObject<number | null>;
+  newsIconImageRef?: MutableRefObject<HTMLImageElement | null>;
+  onNewsIconReady?: () => void;
 };
 
 export type NewsCanvasHandle = {
@@ -548,6 +564,11 @@ export const NewsCanvas = forwardRef<NewsCanvasHandle, NewsCanvasProps>(
       videoStream,
       enablePreviewLoop = true,
       onReady,
+      canvasModeRef,
+      introStartTimeRef,
+      fadeStartTimeRef,
+      newsIconImageRef,
+      onNewsIconReady,
     },
     ref
   ) {
@@ -561,9 +582,71 @@ export const NewsCanvas = forwardRef<NewsCanvasHandle, NewsCanvasProps>(
 
     const getDrawFrameCallback = useCallback((): DrawFrameCallback | null => {
       return (ctx, video) => {
+        const drawMode = canvasModeRef?.current ?? "live";
+
+        if (
+          drawMode === "intro" &&
+          introStartTimeRef?.current != null
+        ) {
+          const elapsed =
+            (performance.now() - introStartTimeRef.current) / 1000;
+          renderIntroFrame(
+            ctx,
+            elapsed,
+            userName,
+            newsIconImageRef?.current ?? null
+          );
+          return;
+        }
+
+        if (drawMode === "fade" && fadeStartTimeRef?.current != null) {
+          const progress = clamp(
+            (performance.now() - fadeStartTimeRef.current) / 500,
+            0,
+            1
+          );
+          renderFadeFrame(ctx, progress, () => {
+            renderLiveFrame(ctx, video, theme, seed, userName, scriptText);
+          });
+          return;
+        }
+
         renderLiveFrame(ctx, video, theme, seed, userName, scriptText);
       };
-    }, [theme, seed, userName, scriptText]);
+    }, [
+      canvasModeRef,
+      fadeStartTimeRef,
+      introStartTimeRef,
+      newsIconImageRef,
+      scriptText,
+      seed,
+      theme,
+      userName,
+    ]);
+
+    useEffect(() => {
+      if (onNewsIconReady && newsIconImageRef?.current) {
+        onNewsIconReady();
+        return;
+      }
+
+      const image = new Image();
+      image.onload = () => {
+        if (newsIconImageRef) {
+          newsIconImageRef.current = image;
+        }
+        onNewsIconReady?.();
+      };
+      image.onerror = () => {
+        console.error("[NewsCanvas] news-icon load failed");
+      };
+      image.src = INTRO_NEWS_ICON_SRC;
+
+      return () => {
+        image.onload = null;
+        image.onerror = null;
+      };
+    }, [newsIconImageRef, onNewsIconReady]);
 
     useImperativeHandle(ref, () => ({
       getCanvas: () => canvasRef.current,

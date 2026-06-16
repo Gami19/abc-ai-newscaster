@@ -8,6 +8,7 @@ import {
   type NewsCanvasHandle,
 } from "@/components/canvas/NewsCanvas";
 import { AudioVisualizer } from "@/components/recording/AudioVisualizer";
+import { IntroOverlay } from "@/components/recording/IntroOverlay";
 import { KaraokeScript } from "@/components/preview/KaraokeScript";
 import { OnAirHeader } from "@/components/preview/OnAirHeader";
 import { ModeSelector } from "@/components/recording/ModeSelector";
@@ -49,6 +50,16 @@ export function RecordingView() {
     isRecording,
     karaokeSegments,
     highlightIndex,
+    newsIconLoaded,
+    isPreparingCountdown,
+    introStartTime,
+    soundtrackDuration,
+    countdownError,
+    canvasModeRef,
+    introStartTimeRef,
+    fadeStartTimeRef,
+    newsIconImageRef,
+    showRecordingCanvas,
     selectMode,
     startCountdown,
     stopRecording,
@@ -82,8 +93,10 @@ export function RecordingView() {
   const resolvedCategory =
     dreamCategory ?? (userInput ? detectCategory(userInput.dream) : "default");
 
-  const showOnAirChrome =
-    broadcastPhase === "onair" || broadcastPhase === "countdown";
+  const showIntroOverlay =
+    (broadcastPhase === "intro" || broadcastPhase === "fade") &&
+    introStartTime != null &&
+    soundtrackDuration != null;
 
   return (
     <div className="space-y-4">
@@ -94,60 +107,80 @@ export function RecordingView() {
       {broadcastPhase === "countdown" ? (
         <RecordingCountdown
           countdownValue={countdownValue}
+          newsIconLoaded={newsIconLoaded}
+          isPreparing={isPreparingCountdown}
+          errorMessage={countdownError}
           onStart={() => void startCountdown()}
         />
       ) : null}
 
-      {showOnAirChrome ? (
-        <OnAirHeader isOnAir={broadcastPhase === "onair" || isRecording} />
+      {broadcastPhase === "onair" ? (
+        <OnAirHeader isOnAir={isRecording} />
       ) : null}
 
-      {broadcastPhase === "onair" || broadcastPhase === "countdown" ? (
-        <>
+      {showRecordingCanvas ? (
+        <div
+          className={cn(
+            "relative w-full",
+            broadcastPhase === "countdown" &&
+              "pointer-events-none absolute h-0 w-0 overflow-hidden opacity-0"
+          )}
+        >
           <NewsCanvas
             ref={canvasRef}
             mode="live"
             videoStream={videoStream}
-            enablePreviewLoop={broadcastPhase !== "onair"}
+            enablePreviewLoop={false}
             scriptText={scriptText}
             userName={userInput?.name ?? ""}
             dreamCategory={resolvedCategory}
             dreamText={userInput?.dream ?? ""}
+            canvasModeRef={canvasModeRef}
+            introStartTimeRef={introStartTimeRef}
+            fadeStartTimeRef={fadeStartTimeRef}
+            newsIconImageRef={newsIconImageRef}
           />
 
-          {broadcastPhase === "onair" ? (
-            <div className="space-y-4">
-              <AudioVisualizer
-                mediaStream={videoStream}
-                audioContextRef={audioContextRef}
-                isActive={isRecording}
-              />
-
-              <KaraokeScript
-                segments={karaokeSegments}
-                highlightIndex={
-                  recordingMode === "together" ? highlightIndex : -1
-                }
-              />
-
-              {!audioPermission ? (
-                <p className="text-center text-xs text-abc-gray">
-                  マイクが使えないので、映像だけ録画します
-                </p>
-              ) : null}
-
-              <Button
-                type="button"
-                onClick={() => void stopRecording()}
-                className={cn(
-                  "h-14 w-full bg-abc-red text-lg font-bold text-white hover:bg-abc-red/90"
-                )}
-              >
-                ■ 読みおわった！
-              </Button>
-            </div>
+          {showIntroOverlay ? (
+            <IntroOverlay
+              introStartTime={introStartTime}
+              totalDuration={soundtrackDuration}
+            />
           ) : null}
-        </>
+        </div>
+      ) : null}
+
+      {broadcastPhase === "onair" ? (
+        <div className="space-y-4">
+          <AudioVisualizer
+            mediaStream={videoStream}
+            audioContextRef={audioContextRef}
+            isActive={isRecording}
+          />
+
+          <KaraokeScript
+            segments={karaokeSegments}
+            highlightIndex={
+              recordingMode === "together" ? highlightIndex : -1
+            }
+          />
+
+          {!audioPermission ? (
+            <p className="text-center text-xs text-abc-gray">
+              マイクが使えないので、映像だけ録画します
+            </p>
+          ) : null}
+
+          <Button
+            type="button"
+            onClick={() => void stopRecording()}
+            className={cn(
+              "h-14 w-full bg-abc-red text-lg font-bold text-white hover:bg-abc-red/90"
+            )}
+          >
+            ■ 読みおわった！
+          </Button>
+        </div>
       ) : null}
 
       {broadcastPhase === "review" && recordedBlob ? (
