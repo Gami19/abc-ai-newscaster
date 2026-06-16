@@ -5,7 +5,9 @@ import { useEffect, useRef } from "react";
 type VisualizerMode = "analyser" | "pseudo" | "decorative";
 
 type AudioVisualizerProps = {
-  audioRef: React.RefObject<HTMLAudioElement | null>;
+  /** マイク波形（収録中は TTS 要素を触らないためこちらを優先） */
+  mediaStream?: MediaStream | null;
+  audioRef?: React.RefObject<HTMLAudioElement | null>;
   audioContextRef: React.RefObject<AudioContext | null>;
   isActive: boolean;
 };
@@ -42,21 +44,28 @@ function drawBar(
 }
 
 export function AudioVisualizer({
+  mediaStream,
   audioRef,
   audioContextRef,
   isActive,
 }: AudioVisualizerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
-  const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
-  const connectedElementRef = useRef<HTMLAudioElement | null>(null);
+  const sourceRef = useRef<
+    MediaStreamAudioSourceNode | MediaElementAudioSourceNode | null
+  >(null);
+  const connectedStreamRef = useRef<MediaStream | null>(null);
   const modeRef = useRef<VisualizerMode>("decorative");
   const rafRef = useRef<number | null>(null);
-  const startTimeRef = useRef<number>(Date.now());
+  const startTimeRef = useRef<number>(0);
 
   useEffect(() => {
-    const audioElement = audioRef.current;
-    if (!audioElement || !isActive) return;
+    if (!isActive) return;
+
+    const micStream = mediaStream;
+    const audioElement = audioRef?.current;
+
+    if (!micStream && !audioElement) return;
 
     const setup = async () => {
       try {
@@ -74,21 +83,34 @@ export function AudioVisualizer({
           analyserRef.current.fftSize = 64;
         }
 
-        if (connectedElementRef.current !== audioElement) {
+        if (micStream && connectedStreamRef.current !== micStream) {
+          sourceRef.current?.disconnect();
+          sourceRef.current = ctx.createMediaStreamSource(micStream);
+          sourceRef.current.connect(analyserRef.current);
+          connectedStreamRef.current = micStream;
+          modeRef.current = "analyser";
+          return;
+        }
+
+        if (!micStream && audioElement) {
           sourceRef.current = ctx.createMediaElementSource(audioElement);
           sourceRef.current.connect(analyserRef.current);
           analyserRef.current.connect(ctx.destination);
-          connectedElementRef.current = audioElement;
+          modeRef.current = "analyser";
         }
-
-        modeRef.current = "analyser";
       } catch {
         modeRef.current = "pseudo";
       }
     };
 
     void setup();
-  }, [audioRef, audioContextRef, isActive]);
+  }, [audioContextRef, audioRef, isActive, mediaStream]);
+
+  useEffect(() => {
+    if (isActive) {
+      startTimeRef.current = performance.now();
+    }
+  }, [isActive]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -99,7 +121,7 @@ export function AudioVisualizer({
 
     const getBarHeights = (): number[] => {
       const mode = modeRef.current;
-      const audio = audioRef.current;
+      const audio = audioRef?.current;
       const analyser = analyserRef.current;
 
       if (mode === "analyser" && analyser && isActive) {
@@ -116,13 +138,13 @@ export function AudioVisualizer({
         const t = audio.currentTime;
         return Array.from({ length: BAR_COUNT }, (_, i) => {
           const wave =
-            (Math.sin(t * 8 + i * 0.5) + 1) / 2 * 0.6 +
-            (Math.sin(t * 3 + i) + 1) / 2 * 0.4;
+            ((Math.sin(t * 8 + i * 0.5) + 1) / 2) * 0.6 +
+            ((Math.sin(t * 3 + i) + 1) / 2) * 0.4;
           return wave * (CANVAS_HEIGHT - 20);
         });
       }
 
-      const elapsed = (Date.now() - startTimeRef.current) / 1000;
+      const elapsed = (performance.now() - startTimeRef.current) / 1000;
       return Array.from({ length: BAR_COUNT }, (_, i) => {
         const wave = (Math.sin(elapsed * 2 + i * 0.4) + 1) / 2;
         return isActive ? wave * (CANVAS_HEIGHT - 24) * 0.5 : 4;

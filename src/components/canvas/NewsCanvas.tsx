@@ -2,6 +2,7 @@
 
 import {
   forwardRef,
+  useCallback,
   useEffect,
   useImperativeHandle,
   useRef,
@@ -13,7 +14,8 @@ import {
   seededRandom,
   type DreamTheme,
 } from "@/lib/theme/dreamTheme";
-import type { DreamCategory } from "@/types";
+import { safePlayVideo, stopVideoElement } from "@/lib/audio/safePlay";
+import type { DrawFrameCallback, DreamCategory } from "@/types";
 
 const CANVAS_WIDTH = 1280;
 const CANVAS_HEIGHT = 720;
@@ -27,11 +29,11 @@ const MAIN_BOTTOM = TELOP_Y - MAIN_CONTENT_MARGIN;
 const NAME_PLATE_X = 80;
 const NAME_PLATE_W = 320;
 const NAME_PLATE_H = 80;
-const NAME_PLATE_Y = MAIN_BOTTOM - NAME_PLATE_H;
 
 const PHOTO_SIZE = 320;
 const PHOTO_X = 80;
-const PHOTO_Y = NAME_PLATE_Y - PHOTO_SIZE - 16;
+const PHOTO_Y = 160;
+const NAME_PLATE_Y = PHOTO_Y + PHOTO_SIZE + 16;
 const PHOTO_RADIUS = 28;
 
 const TELOP_MARGIN = 0;
@@ -39,16 +41,20 @@ const TELOP_MARGIN = 0;
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"] as const;
 
 type NewsCanvasProps = {
-  photoBase64: string;
   scriptText: string;
   userName: string;
   dreamCategory: DreamCategory;
   dreamText?: string;
+  mode?: "static" | "live";
+  photoBase64?: string;
+  videoStream?: MediaStream | null;
+  enablePreviewLoop?: boolean;
   onReady?: (blob: Blob) => void;
 };
 
 export type NewsCanvasHandle = {
   getCanvas: () => HTMLCanvasElement | null;
+  getDrawFrameCallback: () => DrawFrameCallback | null;
 };
 
 function formatHeaderDateTime(): string {
@@ -103,6 +109,7 @@ function fitTelopLayout(
   maxWidth: number
 ): TelopLayout {
   const configs: TelopLayout[] = [
+    { lines: [], fontSize: 32, lineHeight: 38 },
     { lines: [], fontSize: 28, lineHeight: 34 },
     { lines: [], fontSize: 24, lineHeight: 30 },
     { lines: [], fontSize: 22, lineHeight: 26 },
@@ -111,7 +118,7 @@ function fitTelopLayout(
   for (const cfg of configs) {
     ctx.font = `${cfg.fontSize}px sans-serif`;
     const lines = wrapText(ctx, text, maxWidth);
-    const maxLines = cfg.fontSize >= 24 ? 4 : 5;
+    const maxLines = cfg.fontSize >= 28 ? 4 : 5;
     if (lines.length <= maxLines) {
       return { ...cfg, lines };
     }
@@ -134,32 +141,56 @@ function fitTelopLayout(
   return { lines, fontSize: 22, lineHeight: 26 };
 }
 
-/** CSS object-cover と同様に、比率を保ったまま枠を埋める */
 function drawImageCover(
   ctx: CanvasRenderingContext2D,
-  image: HTMLImageElement,
+  source: CanvasImageSource,
   dx: number,
   dy: number,
   dw: number,
-  dh: number
+  dh: number,
+  mirror = false
 ) {
-  const srcAspect = image.width / image.height;
+  const width =
+    source instanceof HTMLVideoElement
+      ? source.videoWidth
+      : source instanceof HTMLImageElement
+        ? source.width
+        : dw;
+  const height =
+    source instanceof HTMLVideoElement
+      ? source.videoHeight
+      : source instanceof HTMLImageElement
+        ? source.height
+        : dh;
+
+  if (!width || !height) return;
+
+  const srcAspect = width / height;
   const dstAspect = dw / dh;
 
   let sx = 0;
   let sy = 0;
-  let sw = image.width;
-  let sh = image.height;
+  let sw = width;
+  let sh = height;
 
   if (srcAspect > dstAspect) {
-    sw = image.height * dstAspect;
-    sx = (image.width - sw) / 2;
+    sw = height * dstAspect;
+    sx = (width - sw) / 2;
   } else {
-    sh = image.width / dstAspect;
-    sy = (image.height - sh) / 2;
+    sh = width / dstAspect;
+    sy = (height - sh) / 2;
   }
 
-  ctx.drawImage(image, sx, sy, sw, sh, dx, dy, dw, dh);
+  if (mirror) {
+    ctx.save();
+    ctx.translate(dx + dw, dy);
+    ctx.scale(-1, 1);
+    ctx.drawImage(source, sx, sy, sw, sh, 0, 0, dw, dh);
+    ctx.restore();
+    return;
+  }
+
+  ctx.drawImage(source, sx, sy, sw, sh, dx, dy, dw, dh);
 }
 
 function drawBackground(ctx: CanvasRenderingContext2D, bgTint: string) {
@@ -224,7 +255,7 @@ function drawDreamDecorations(
   const subIconXMax = 1180;
   const subIconYMin = HEADER_HEIGHT + 8;
   const subIconYMax = MAIN_BOTTOM - 8;
-  ctx.font = "72px serif";
+  ctx.font = "60px serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   for (let i = 0; i < theme.subIcons.length; i++) {
@@ -246,9 +277,10 @@ function drawDreamDecorations(
   ctx.restore();
 }
 
-function drawPhotoWithFrame(
+function drawFaceFrame(
   ctx: CanvasRenderingContext2D,
-  photo: HTMLImageElement
+  source: CanvasImageSource,
+  mirror = false
 ) {
   ctx.save();
   ctx.shadowColor = "#FF8C00";
@@ -263,7 +295,7 @@ function drawPhotoWithFrame(
   ctx.beginPath();
   ctx.roundRect(PHOTO_X, PHOTO_Y, PHOTO_SIZE, PHOTO_SIZE, PHOTO_RADIUS);
   ctx.clip();
-  drawImageCover(ctx, photo, PHOTO_X, PHOTO_Y, PHOTO_SIZE, PHOTO_SIZE);
+  drawImageCover(ctx, source, PHOTO_X, PHOTO_Y, PHOTO_SIZE, PHOTO_SIZE, mirror);
   ctx.restore();
 
   ctx.strokeStyle = "#FF8C00";
@@ -283,9 +315,23 @@ function drawPhotoWithFrame(
     PHOTO_RADIUS - 2
   );
   ctx.stroke();
+
+  ctx.fillStyle = "#FF4500";
+  ctx.beginPath();
+  ctx.roundRect(PHOTO_X + 12, PHOTO_Y + 12, 72, 28, 6);
+  ctx.fill();
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = "bold 16px sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("LIVE", PHOTO_X + 48, PHOTO_Y + 26);
 }
 
-function drawNamePlate(ctx: CanvasRenderingContext2D, userName: string) {
+function drawNamePlate(
+  ctx: CanvasRenderingContext2D,
+  userName: string,
+  accentColor: string
+) {
   ctx.save();
   ctx.shadowColor = "rgba(0, 0, 0, 0.35)";
   ctx.shadowBlur = 12;
@@ -297,7 +343,7 @@ function drawNamePlate(ctx: CanvasRenderingContext2D, userName: string) {
     NAME_PLATE_X + NAME_PLATE_W,
     NAME_PLATE_Y
   );
-  gradient.addColorStop(0, "#FF8C00");
+  gradient.addColorStop(0, accentColor);
   gradient.addColorStop(1, "#FF6000");
   ctx.fillStyle = gradient;
   ctx.beginPath();
@@ -364,18 +410,29 @@ function drawHeader(ctx: CanvasRenderingContext2D) {
   ctx.stroke();
 }
 
-function drawTelop(ctx: CanvasRenderingContext2D, scriptText: string) {
+function drawTelop(
+  ctx: CanvasRenderingContext2D,
+  scriptText: string,
+  accentColor: string
+) {
   const gradient = ctx.createLinearGradient(0, TELOP_Y, 0, CANVAS_HEIGHT);
-  gradient.addColorStop(0, "#FF8C00");
+  gradient.addColorStop(0, accentColor);
   gradient.addColorStop(1, "#E07000");
   ctx.fillStyle = gradient;
   ctx.fillRect(TELOP_MARGIN, TELOP_Y, CANVAS_WIDTH, TELOP_HEIGHT);
 
-  ctx.strokeStyle = "#FFFFFF";
-  ctx.lineWidth = 3;
+  ctx.strokeStyle = accentColor;
+  ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(0, TELOP_Y);
   ctx.lineTo(CANVAS_WIDTH, TELOP_Y);
+  ctx.stroke();
+
+  ctx.strokeStyle = "#FFFFFF";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, TELOP_Y + 2);
+  ctx.lineTo(CANVAS_WIDTH, TELOP_Y + 2);
   ctx.stroke();
 
   const boxW = 90;
@@ -410,7 +467,40 @@ function drawTelop(ctx: CanvasRenderingContext2D, scriptText: string) {
   });
 }
 
-async function composeNewsCanvas(
+function drawTelopPreview(
+  ctx: CanvasRenderingContext2D,
+  scriptText: string,
+  accentColor: string
+) {
+  const preview = scriptText.slice(0, 20);
+  drawTelop(
+    ctx,
+    preview.length < scriptText.length ? `${preview}…` : preview,
+    accentColor
+  );
+}
+
+function renderLiveFrame(
+  ctx: CanvasRenderingContext2D,
+  video: HTMLVideoElement,
+  theme: DreamTheme,
+  seed: string,
+  userName: string,
+  scriptText: string
+) {
+  ctx.canvas.width = CANVAS_WIDTH;
+  ctx.canvas.height = CANVAS_HEIGHT;
+  drawBackground(ctx, theme.bgTint);
+  drawDreamDecorations(ctx, theme, seed);
+  if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+    drawFaceFrame(ctx, video, true);
+  }
+  drawNamePlate(ctx, userName, theme.accentColor);
+  drawHeader(ctx);
+  drawTelopPreview(ctx, scriptText, theme.accentColor);
+}
+
+async function composeStaticCanvas(
   canvas: HTMLCanvasElement,
   photoBase64: string,
   scriptText: string,
@@ -429,10 +519,10 @@ async function composeNewsCanvas(
 
   drawBackground(ctx, theme.bgTint);
   drawDreamDecorations(ctx, theme, `${dreamCategory}-${userName}`);
-  drawPhotoWithFrame(ctx, photo);
-  drawNamePlate(ctx, userName);
+  drawFaceFrame(ctx, photo);
+  drawNamePlate(ctx, userName, theme.accentColor);
   drawHeader(ctx);
-  drawTelop(ctx, scriptText);
+  drawTelop(ctx, scriptText, theme.accentColor);
 
   return new Promise((resolve, reject) => {
     canvas.toBlob(
@@ -448,17 +538,41 @@ async function composeNewsCanvas(
 
 export const NewsCanvas = forwardRef<NewsCanvasHandle, NewsCanvasProps>(
   function NewsCanvas(
-    { photoBase64, scriptText, userName, dreamCategory, dreamText, onReady },
+    {
+      scriptText,
+      userName,
+      dreamCategory,
+      dreamText,
+      mode = "static",
+      photoBase64,
+      videoStream,
+      enablePreviewLoop = true,
+      onReady,
+    },
     ref
   ) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
+    const previewVideoRef = useRef<HTMLVideoElement | null>(null);
+    const previewRafRef = useRef<number | null>(null);
     const [error, setError] = useState<string | null>(null);
+
+    const theme = getDreamTheme(dreamCategory, dreamText ?? "");
+    const seed = `${dreamCategory}-${userName}`;
+
+    const getDrawFrameCallback = useCallback((): DrawFrameCallback | null => {
+      return (ctx, video) => {
+        renderLiveFrame(ctx, video, theme, seed, userName, scriptText);
+      };
+    }, [theme, seed, userName, scriptText]);
 
     useImperativeHandle(ref, () => ({
       getCanvas: () => canvasRef.current,
+      getDrawFrameCallback,
     }));
 
     useEffect(() => {
+      if (mode !== "static" || !photoBase64) return;
+
       const canvas = canvasRef.current;
       if (!canvas) return;
 
@@ -466,7 +580,7 @@ export const NewsCanvas = forwardRef<NewsCanvasHandle, NewsCanvasProps>(
 
       const run = async () => {
         try {
-          const blob = await composeNewsCanvas(
+          const blob = await composeStaticCanvas(
             canvas,
             photoBase64,
             scriptText,
@@ -490,10 +604,58 @@ export const NewsCanvas = forwardRef<NewsCanvasHandle, NewsCanvasProps>(
       return () => {
         cancelled = true;
       };
-    }, [photoBase64, scriptText, userName, dreamCategory, dreamText, onReady]);
+    }, [
+      mode,
+      photoBase64,
+      scriptText,
+      userName,
+      dreamCategory,
+      dreamText,
+      onReady,
+    ]);
+
+    useEffect(() => {
+      if (mode !== "live" || !videoStream || !enablePreviewLoop) return;
+
+      const video = document.createElement("video");
+      video.srcObject = videoStream;
+      video.muted = true;
+      video.playsInline = true;
+      previewVideoRef.current = video;
+
+      const canvas = canvasRef.current;
+      const ctx = canvas?.getContext("2d");
+
+      const loop = () => {
+        if (ctx && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+          renderLiveFrame(ctx, video, theme, seed, userName, scriptText);
+        }
+        previewRafRef.current = requestAnimationFrame(loop);
+      };
+
+      void safePlayVideo(video).then(() => {
+        previewRafRef.current = requestAnimationFrame(loop);
+      });
+
+      return () => {
+        if (previewRafRef.current !== null) {
+          cancelAnimationFrame(previewRafRef.current);
+        }
+        stopVideoElement(video);
+        previewVideoRef.current = null;
+      };
+    }, [mode, videoStream, enablePreviewLoop, theme, seed, userName, scriptText]);
 
     if (error) {
       return <p className="text-center text-sm text-abc-red">{error}</p>;
+    }
+
+    if (mode === "static" && !photoBase64) {
+      return (
+        <p className="text-center text-sm text-abc-red">
+          写真の準備ができていません
+        </p>
+      );
     }
 
     return (

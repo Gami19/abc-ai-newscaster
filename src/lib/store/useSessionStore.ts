@@ -1,6 +1,11 @@
 import { create } from "zustand";
 
-import type { BroadcastPhase, DreamCategory, UserInput, VideoMode } from "@/types";
+import type {
+  BroadcastPhase,
+  DreamCategory,
+  RecordingMode,
+  UserInput,
+} from "@/types";
 
 type SessionState = {
   userInput: UserInput | null;
@@ -8,9 +13,11 @@ type SessionState = {
   scriptText: string | null;
   audioBlob: Blob | null;
   canvasImageBlob: Blob | null;
-  videoBlob: Blob | null;
-  videoMimeType: string | null;
-  videoMode: VideoMode | null;
+  videoStream: MediaStream | null;
+  audioPermission: boolean;
+  recordingMode: RecordingMode | null;
+  userVoiceVideoBlob: Blob | null;
+  useBrowserSpeechForTts: boolean;
   dreamCategory: DreamCategory | null;
   broadcastPhase: BroadcastPhase;
   highlightIndex: number;
@@ -19,8 +26,11 @@ type SessionState = {
   setScript: (text: string) => void;
   setAudio: (blob: Blob) => void;
   setCanvasImage: (blob: Blob) => void;
-  setVideo: (blob: Blob, mimeType: string) => void;
-  setVideoMode: (mode: VideoMode) => void;
+  setVideoStream: (stream: MediaStream | null) => void;
+  setAudioPermission: (ok: boolean) => void;
+  setRecordingMode: (mode: RecordingMode) => void;
+  setUserVoiceVideoBlob: (blob: Blob) => void;
+  setUseBrowserSpeechForTts: (enabled: boolean) => void;
   setDreamCategory: (category: DreamCategory) => void;
   setBroadcastPhase: (phase: BroadcastPhase) => void;
   setHighlightIndex: (index: number) => void;
@@ -33,42 +43,35 @@ const initialState = {
   scriptText: null,
   audioBlob: null,
   canvasImageBlob: null,
-  videoBlob: null,
-  videoMimeType: null,
-  videoMode: null,
+  videoStream: null,
+  audioPermission: false,
+  recordingMode: null as RecordingMode | null,
+  userVoiceVideoBlob: null,
+  useBrowserSpeechForTts: false,
   dreamCategory: null as DreamCategory | null,
-  broadcastPhase: "idle" as BroadcastPhase,
+  broadcastPhase: "standby" as BroadcastPhase,
   highlightIndex: -1,
 };
 
-export const useSessionStore = create<SessionState>((set) => ({
+export const useSessionStore = create<SessionState>((set, get) => ({
   ...initialState,
   setUserInput: (input) => set({ userInput: input }),
   setPhoto: (base64) => set({ photoBase64: base64 }),
   setScript: (text) => set({ scriptText: text }),
   setAudio: (blob) => set({ audioBlob: blob }),
   setCanvasImage: (blob) => set({ canvasImageBlob: blob }),
-  setVideo: (blob, mimeType) => set({ videoBlob: blob, videoMimeType: mimeType }),
-  setVideoMode: (mode) => set({ videoMode: mode }),
+  setVideoStream: (stream) => set({ videoStream: stream }),
+  setAudioPermission: (ok) => set({ audioPermission: ok }),
+  setRecordingMode: (mode) => set({ recordingMode: mode }),
+  setUserVoiceVideoBlob: (blob) => set({ userVoiceVideoBlob: blob }),
+  setUseBrowserSpeechForTts: (enabled) =>
+    set({ useBrowserSpeechForTts: enabled }),
   setDreamCategory: (category) => set({ dreamCategory: category }),
   setBroadcastPhase: (phase) => set({ broadcastPhase: phase }),
   setHighlightIndex: (index) => set({ highlightIndex: index }),
-  reset: () => set(initialState),
+  reset: () => {
+    const { videoStream } = get();
+    videoStream?.getTracks().forEach((track) => track.stop());
+    set({ ...initialState });
+  },
 }));
-
-export function isResultReady(state: {
-  videoBlob: Blob | null;
-  videoMode: VideoMode | null;
-  canvasImageBlob: Blob | null;
-  audioBlob: Blob | null;
-}): boolean {
-  if (state.videoBlob) return true;
-  if (
-    state.videoMode === "fallback" &&
-    state.canvasImageBlob &&
-    state.audioBlob
-  ) {
-    return true;
-  }
-  return false;
-}

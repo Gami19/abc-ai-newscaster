@@ -1,9 +1,8 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import Webcam from "react-webcam";
 
 import { CameraNewsOverlay } from "@/components/camera/CameraNewsOverlay";
 import { Button } from "@/components/ui/button";
@@ -12,30 +11,102 @@ import { useSessionStore } from "@/lib/store/useSessionStore";
 
 type CameraPhase = "idle" | "preview";
 
+const VIDEO_CONSTRAINTS: MediaTrackConstraints = {
+  width: 1280,
+  height: 720,
+  facingMode: "user",
+};
+
 export function CameraView() {
   const router = useRouter();
-  const webcamRef = useRef<Webcam>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const setPhoto = useSessionStore((s) => s.setPhoto);
+  const setVideoStream = useSessionStore((s) => s.setVideoStream);
+  const setAudioPermission = useSessionStore((s) => s.setAudioPermission);
+  const videoStream = useSessionStore((s) => s.videoStream);
+
   const [phase, setPhase] = useState<CameraPhase>("idle");
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [micDenied, setMicDenied] = useState(false);
 
-  const handleUserMediaError = useCallback(() => {
-    setCameraError(
-      "カメラが使えないみたい。設定を確認して、もう一度ためしてね。"
-    );
-  }, []);
+  const streamReady = Boolean(videoStream);
+
+  useEffect(() => {
+    if (videoStream) {
+      if (videoRef.current) {
+        videoRef.current.srcObject = videoStream;
+      }
+      return;
+    }
+
+    let mounted = true;
+
+    const initCamera = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: VIDEO_CONSTRAINTS,
+          audio: true,
+        });
+        if (!mounted) return;
+        setVideoStream(stream);
+        setAudioPermission(true);
+        setMicDenied(false);
+      } catch {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: VIDEO_CONSTRAINTS,
+          });
+          if (!mounted) return;
+          setVideoStream(stream);
+          setAudioPermission(false);
+          setMicDenied(true);
+        } catch {
+          if (mounted) {
+            setCameraError(
+              "カメラが使えないみたい。設定を確認して、もう一度ためしてね。"
+            );
+          }
+        }
+      }
+    };
+
+    void initCamera();
+
+    return () => {
+      mounted = false;
+    };
+  }, [setAudioPermission, setVideoStream, videoStream]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !videoStream) return;
+    video.srcObject = videoStream;
+    void video.play().catch(() => undefined);
+  }, [videoStream]);
 
   const capturePhoto = useCallback(() => {
-    const screenshot = webcamRef.current?.getScreenshot({
-      width: 1280,
-      height: 720,
-    });
-
-    if (!screenshot) {
+    const video = videoRef.current;
+    if (!video || video.videoWidth === 0) {
       setCameraError("写真が撮れなかったよ。もう一度ためしてね。");
       return;
     }
+
+    const canvas = document.createElement("canvas");
+    canvas.width = 1280;
+    canvas.height = 720;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      setCameraError("写真が撮れなかったよ。もう一度ためしてね。");
+      return;
+    }
+
+    ctx.save();
+    ctx.translate(canvas.width, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(video, 0, 0, 1280, 720);
+    ctx.restore();
+    const screenshot = canvas.toDataURL("image/jpeg", 0.92);
 
     setPreviewUrl(screenshot);
     setPhase("preview");
@@ -87,25 +158,24 @@ export function CameraView() {
     <Card className="overflow-hidden border-border shadow-sm">
       <CardContent className="space-y-4 p-4">
         <h1 className="text-center text-2xl font-bold text-abc-charcoal">
-          カメラに向かってすわってね！
+          ABCキャスターっぽくすわってね！📺
         </h1>
+
+        {micDenied ? (
+          <p className="text-center text-xs text-abc-gray">
+            マイクがつかえないので、AIの声でほうそうします
+          </p>
+        ) : null}
 
         <div className="relative aspect-video w-full overflow-hidden rounded-2xl bg-black">
           {phase === "idle" ? (
             <>
-              <Webcam
-                ref={webcamRef}
-                audio={false}
-                mirrored
-                screenshotFormat="image/jpeg"
-                screenshotQuality={0.92}
-                videoConstraints={{
-                  width: 1280,
-                  height: 720,
-                  facingMode: "user",
-                }}
-                onUserMediaError={handleUserMediaError}
-                className="h-full w-full object-cover"
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className="h-full w-full scale-x-[-1] object-cover"
               />
               <CameraNewsOverlay />
             </>
@@ -124,7 +194,8 @@ export function CameraView() {
           <Button
             type="button"
             onClick={capturePhoto}
-            className="h-12 w-full bg-abc-red text-lg text-white hover:bg-abc-red/90"
+            disabled={!streamReady}
+            className="h-12 w-full bg-abc-red text-lg text-white hover:bg-abc-red/90 disabled:opacity-70"
           >
             さつえいする！
           </Button>

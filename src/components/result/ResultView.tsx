@@ -1,12 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import Image from "next/image";
+import { useCallback, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 
+import { Confetti } from "@/components/effects/Confetti";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { isResultReady, useSessionStore } from "@/lib/store/useSessionStore";
+import { useSessionStore } from "@/lib/store/useSessionStore";
 
 function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
@@ -19,167 +19,98 @@ function downloadBlob(blob: Blob, filename: string) {
 
 export function ResultView() {
   const router = useRouter();
-  const videoBlob = useSessionStore((s) => s.videoBlob);
-  const videoMimeType = useSessionStore((s) => s.videoMimeType);
-  const videoMode = useSessionStore((s) => s.videoMode);
-  const canvasImageBlob = useSessionStore((s) => s.canvasImageBlob);
-  const audioBlob = useSessionStore((s) => s.audioBlob);
+  const userVoiceVideoBlob = useSessionStore((s) => s.userVoiceVideoBlob);
+  const audioPermission = useSessionStore((s) => s.audioPermission);
   const reset = useSessionStore((s) => s.reset);
 
-  const [localVideoUrl, setLocalVideoUrl] = useState<string | null>(null);
-  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
-
-  const isFallback = videoMode === "fallback";
+  const localVideoUrl = useMemo(
+    () =>
+      userVoiceVideoBlob ? URL.createObjectURL(userVoiceVideoBlob) : null,
+    [userVoiceVideoBlob]
+  );
 
   useEffect(() => {
-    if (!isResultReady({ videoBlob, videoMode, canvasImageBlob, audioBlob })) {
+    if (!userVoiceVideoBlob) {
       router.replace("/");
-      return;
     }
+  }, [userVoiceVideoBlob, router]);
 
-    if (videoBlob) {
-      const url = URL.createObjectURL(videoBlob);
-      setLocalVideoUrl(url);
-      return () => URL.revokeObjectURL(url);
-    }
-
-    if (isFallback && canvasImageBlob) {
-      const url = URL.createObjectURL(canvasImageBlob);
-      setImagePreviewUrl(url);
-      return () => URL.revokeObjectURL(url);
-    }
-  }, [
-    videoBlob,
-    videoMode,
-    canvasImageBlob,
-    audioBlob,
-    isFallback,
-    router,
-  ]);
+  useEffect(() => {
+    if (!localVideoUrl) return;
+    return () => URL.revokeObjectURL(localVideoUrl);
+  }, [localVideoUrl]);
 
   const handleReset = useCallback(() => {
     if (localVideoUrl) URL.revokeObjectURL(localVideoUrl);
-    if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
     reset();
     router.push("/");
-  }, [localVideoUrl, imagePreviewUrl, reset, router]);
+  }, [localVideoUrl, reset, router]);
 
   const handleDownloadVideo = () => {
-    if (!videoBlob) return;
-    const ext = videoMimeType?.includes("webm") ? "webm" : "mp4";
-    downloadBlob(videoBlob, `abc-news-2035.${ext}`);
+    if (!userVoiceVideoBlob) return;
+    downloadBlob(userVoiceVideoBlob, "abc-news-2035.webm");
   };
 
-  const handleDownloadImage = () => {
-    if (!canvasImageBlob) return;
-    downloadBlob(canvasImageBlob, "abc-news-2035.jpg");
-  };
-
-  const handleDownloadAudio = () => {
-    if (!audioBlob) return;
-    const ext = audioBlob.type.includes("mpeg") ? "mp3" : "wav";
-    downloadBlob(audioBlob, `abc-news-2035.${ext}`);
-  };
-
-  if (!isResultReady({ videoBlob, videoMode, canvasImageBlob, audioBlob })) {
+  if (!userVoiceVideoBlob) {
     return null;
   }
 
-  const downloadExt = videoMimeType?.includes("webm") ? "webm" : "mp4";
-
   return (
     <div className="space-y-6">
+      <Confetti count={70} active />
       <div className="text-center">
         <h1 className="text-2xl font-bold text-abc-charcoal">
-          🎉 きみの news おかえり、完成！
+          🎉 きみの news おかえり、できたよ！
         </h1>
-        <div
-          className="mt-2 h-8"
-          aria-hidden
-          data-confetti-placeholder
-        />
       </div>
 
-      {isFallback ? (
-        <Card className="border-border shadow-sm">
-          <CardContent className="space-y-4 py-6">
-            <p className="text-center text-sm text-abc-charcoal">
-              画像と音声を保存してね！
-            </p>
-            {imagePreviewUrl ? (
-              <div className="relative mx-auto aspect-video w-full max-w-md overflow-hidden rounded-lg">
-                <Image
-                  src={imagePreviewUrl}
-                  alt="ニュース画像プレビュー"
-                  fill
-                  unoptimized
-                  className="object-cover"
-                />
-              </div>
-            ) : null}
-            <Button
-              type="button"
-              onClick={handleDownloadImage}
-              className="h-12 w-full bg-abc-orange text-white hover:bg-abc-orange/90"
-            >
-              画像をほぞんする
-            </Button>
-            <Button
-              type="button"
-              onClick={handleDownloadAudio}
-              variant="outline"
-              className="h-12 w-full"
-            >
-              おとをほぞんする
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <>
-          {localVideoUrl ? (
-            <video
-              src={localVideoUrl}
-              autoPlay
-              loop
-              muted
-              playsInline
-              controls
-              className="aspect-video w-full rounded-lg border border-border bg-black"
-            />
-          ) : null}
+      {localVideoUrl ? (
+        <video
+          src={localVideoUrl}
+          autoPlay
+          loop
+          playsInline
+          controls
+          className="aspect-video w-full rounded-lg border border-border bg-black"
+        />
+      ) : null}
 
-          <Card className="border-border shadow-sm">
-            <CardContent className="flex flex-col items-center gap-3 py-6">
-              <p className="text-center text-sm text-abc-charcoal">
-                このパソコンにどうがをほぞんしてね
-              </p>
-              {localVideoUrl ? (
-                <a
-                  href={localVideoUrl}
-                  download={`abc-news-2035.${downloadExt}`}
-                  className="inline-flex h-12 w-full max-w-sm items-center justify-center rounded-md bg-abc-red text-white hover:bg-abc-red/90"
-                >
-                  どうがをダウンロード
-                </a>
-              ) : (
-                <Button
-                  type="button"
-                  onClick={handleDownloadVideo}
-                  className="h-12 w-full max-w-sm bg-abc-red text-white hover:bg-abc-red/90"
-                >
-                  どうがをダウンロード
-                </Button>
-              )}
-            </CardContent>
-          </Card>
+      {!audioPermission ? (
+        <p className="text-center text-sm text-abc-gray">
+          このどうがには音声が入っていないよ。マイクを許可すると次は声も残せるよ。
+        </p>
+      ) : null}
 
+      <Card className="border-border shadow-sm">
+        <CardContent className="flex flex-col items-center gap-3 py-6">
           <p className="text-center text-sm text-abc-charcoal">
-            ほぞんしたどうがを
-            <br />
-            おうちにおかえりしよう！
+            このパソコンにどうがをほぞんしてね
           </p>
-        </>
-      )}
+          {localVideoUrl ? (
+            <a
+              href={localVideoUrl}
+              download="abc-news-2035.webm"
+              className="inline-flex h-12 w-full max-w-sm items-center justify-center rounded-md bg-abc-red text-white hover:bg-abc-red/90"
+            >
+              どうがをダウンロード
+            </a>
+          ) : (
+            <Button
+              type="button"
+              onClick={handleDownloadVideo}
+              className="h-12 w-full max-w-sm bg-abc-red text-white hover:bg-abc-red/90"
+            >
+              どうがをダウンロード
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+
+      <p className="text-center text-sm text-abc-charcoal">
+        ほぞんしたどうがを
+        <br />
+        おうちにおかえりしよう！
+      </p>
 
       <Button
         type="button"
@@ -187,7 +118,7 @@ export function ResultView() {
         onClick={handleReset}
         className="h-12 w-full"
       >
-        つぎのキャスターへ
+        つぎのキャスターへ 🎬
       </Button>
     </div>
   );

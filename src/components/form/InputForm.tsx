@@ -105,7 +105,7 @@ export function InputForm() {
       <Card className="border-border shadow-sm">
         <CardContent className="space-y-6 pt-6">
           <h1 className="text-center text-2xl font-bold text-abc-charcoal">
-            きみの未来を教えて！
+            きみの news おかえり 2035 をつくろう！
           </h1>
 
           <div className="space-y-2">

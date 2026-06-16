@@ -5,8 +5,9 @@ const STEPS = [
   { step: 1, label: "入力" },
   { step: 2, label: "撮影" },
   { step: 3, label: "生成" },
-  { step: 4, label: "確認" },
-  { step: 5, label: "完成" },
+  { step: 4, label: "練習" },
+  { step: 5, label: "収録" },
+  { step: 6, label: "完成" },
 ] as const;
 
 type StepIndicatorProps = {

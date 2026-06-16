@@ -35,6 +35,8 @@ export type TtsProvider = "openai" | "azure";
 export type TtsSynthesisResult = {
   audio: ArrayBuffer;
   contentType: string;
+  /** browser-speech: 固定音声ではなくブラウザ読み上げを使う（モック用） */
+  playback?: "blob" | "browser-speech";
 };
 
 export type TtsProviderInterface = {
@@ -62,31 +64,31 @@ export const GRADES = GRADE_OPTIONS.map((g) => g.value);
 
 export type GradeValue = (typeof GRADE_OPTIONS)[number]["value"];
 
-export type VideoMode = "ffmpeg" | "mediarecorder" | "fallback";
-
-export type VideoOutput =
-  | { type: "video"; blob: Blob; mimeType: string }
-  | { type: "fallback"; imageBlob: Blob; audioBlob: Blob };
-
-export type GenerateVideoInput = {
-  canvas: HTMLCanvasElement;
-  canvasImageBlob: Blob;
-  audioBlob: Blob;
-};
+export type RecordingMode = "solo" | "together";
 
 export type SessionGuardField =
   | "userInput"
   | "photoBase64"
   | "scriptText"
-  | "videoBlob"
-  | "resultReady";
+  | "userVoiceVideoBlob";
 
-export type ExperienceStep = 1 | 2 | 3 | 4 | 5;
+export type ExperienceStep = 1 | 2 | 3 | 4 | 5 | 6;
 
-export type BroadcastPhase = "idle" | "standby" | "countdown" | "onair" | "ended";
+export type BroadcastPhase =
+  | "standby"
+  | "choosing"
+  | "countdown"
+  | "onair"
+  | "review"
+  | "ended";
 
 export type ScriptSegment = {
   text: string;
   startRatio: number;
   endRatio: number;
 };
+
+export type DrawFrameCallback = (
+  ctx: CanvasRenderingContext2D,
+  video: HTMLVideoElement
+) => void;
