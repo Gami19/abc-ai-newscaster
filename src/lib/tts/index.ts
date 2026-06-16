@@ -1,7 +1,7 @@
 import { azureTtsProvider } from "@/lib/tts/azure";
 import { mockTtsProvider } from "@/lib/tts/mock";
 import { openaiTtsProvider } from "@/lib/tts/openai";
-import { isDemoMockTts } from "@/lib/config/demo";
+import { shouldUseMockTts } from "@/lib/config/demo";
 import type { TtsProvider, TtsSynthesisResult } from "@/types";
 
 function resolveProvider(): TtsProvider {
@@ -17,7 +17,7 @@ export async function synthesizeSpeech(text: string): Promise<TtsSynthesisResult
     throw new Error("テキストが空です");
   }
 
-  if (isDemoMockTts()) {
+  if (shouldUseMockTts()) {
     return mockTtsProvider.synthesizeSpeech(text);
   }
 

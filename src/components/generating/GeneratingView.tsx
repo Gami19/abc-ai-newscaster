@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { buildDefaultScript } from "@/lib/prompts/defaultScript";
+import { primeSpeechVoices } from "@/lib/tts/clientSpeech";
 import { detectCategory } from "@/lib/theme/dreamTheme";
 import { useSessionStore } from "@/lib/store/useSessionStore";
 import type { GenerateScriptOutput, UserInput } from "@/types";
@@ -19,14 +20,14 @@ const RETRY_DELAY_MS = 2000;
 const COMPLETE_DELAY_MS = 800;
 
 const SCRIPT_MESSAGES: Record<StepStatus, string> = {
-  pending: "つぎは、ニュースの原稿をつくるよ",
-  active: "ニュースの原稿をつくってるよ…",
+  pending: "つぎは、ABCフォーマットで原稿をつくるよ",
+  active: "ABCフォーマットで原稿を生成中...",
   done: "原稿、できた！",
 };
 
 const TTS_MESSAGES: Record<StepStatus, string> = {
   pending: "つぎは、キャスターの声を準備するよ",
-  active: "キャスターの声を準備してるよ…",
+  active: "ABCキャスター風の声でおてほんをじゅんびしています...",
   done: "声の準備、OK！",
 };
 
@@ -47,7 +48,9 @@ async function fetchScript(
   return data;
 }
 
-async function fetchAudio(scriptText: string): Promise<Blob | null> {
+async function fetchAudio(
+  scriptText: string
+): Promise<{ blob: Blob | null; useBrowserSpeech: boolean }> {
   const response = await fetch("/api/tts", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -55,10 +58,26 @@ async function fetchAudio(scriptText: string): Promise<Blob | null> {
   });
 
   if (!response.ok) {
-    return null;
+    return { blob: null, useBrowserSpeech: false };
   }
 
-  return response.blob();
+  const useBrowserSpeech =
+    response.headers.get("X-Tts-Playback") === "browser-speech";
+
+  if (useBrowserSpeech) {
+    return { blob: null, useBrowserSpeech: true };
+  }
+
+  const rawBlob = await response.blob();
+  const contentType =
+    response.headers.get("Content-Type")?.split(";")[0]?.trim() ??
+    "audio/mpeg";
+  const blob =
+    rawBlob.type && rawBlob.type !== "application/octet-stream"
+      ? rawBlob
+      : new Blob([rawBlob], { type: contentType });
+
+  return { blob, useBrowserSpeech: false };
 }
 
 function sleep(ms: number): Promise<void> {
@@ -102,23 +121,23 @@ function StatusLine({
 }
 
 function getHeadline(
-  name: string,
+  _name: string,
   scriptStatus: StepStatus,
   ttsStatus: StepStatus
 ): string {
   if (scriptStatus !== "done") {
-    return `${name}さんの\nnews おかえり 2035を\nつくってるよ！`;
+    return `news おかえり 2035年版、\nせいさく中...`;
   }
   if (ttsStatus !== "done") {
-    return `もうすこし！\nキャスターの声を\n準備してるよ…`;
+    return `もうすこし！\nABCキャスター風の声を\nじゅんびしてるよ…`;
   }
   return `できた！\n放送室へ向かうよ…`;
 }
 
 function getEncouragement(progress: number): string {
   if (progress < 30) return "2035年の世界をえがいてるよ…";
-  if (progress < 55) return "きみの夢をニュースにしてるよ…";
-  if (progress < 90) return "キャスターの声を録音してるよ…";
+  if (progress < 55) return "ABCフォーマットで原稿を整えてるよ…";
+  if (progress < 90) return "キャスターのお手本を準備してるよ…";
   return "まもなく完成！";
 }
 
@@ -129,6 +148,13 @@ export function GeneratingView() {
   const setScript = useSessionStore((s) => s.setScript);
   const setDreamCategory = useSessionStore((s) => s.setDreamCategory);
   const setAudio = useSessionStore((s) => s.setAudio);
+  const setUseBrowserSpeechForTts = useSessionStore(
+    (s) => s.setUseBrowserSpeechForTts
+  );
+
+  useEffect(() => {
+    primeSpeechVoices();
+  }, []);
 
   const [progress, setProgress] = useState(8);
   const [scriptStatus, setScriptStatus] = useState<StepStatus>("active");
@@ -192,9 +218,9 @@ export function GeneratingView() {
       setProgress(55);
       setTtsStatus("active");
 
-      const audioBlob = await fetchAudio(script);
+      const { blob: audioBlob, useBrowserSpeech } = await fetchAudio(script);
 
-      if (!audioBlob) {
+      if (!audioBlob && !useBrowserSpeech) {
         setTtsStatus("pending");
         setTtsError(
           "ごめんね、声の準備がうまくいかなかったよ。もう一度やってみてね！"
@@ -202,16 +228,27 @@ export function GeneratingView() {
         return;
       }
 
-      setAudio(audioBlob);
+      setUseBrowserSpeechForTts(useBrowserSpeech);
+      if (audioBlob) {
+        setAudio(audioBlob);
+      }
       setTtsStatus("done");
       setProgress(100);
 
       await sleep(COMPLETE_DELAY_MS);
-      router.push("/preview");
+      router.push("/rehearsal");
     };
 
     void run();
-  }, [userInput, photoBase64, router, setScript, setDreamCategory, setAudio]);
+  }, [
+    userInput,
+    photoBase64,
+    router,
+    setScript,
+    setDreamCategory,
+    setAudio,
+    setUseBrowserSpeechForTts,
+  ]);
 
   const headline = useMemo(
     () => getHeadline(casterName, scriptStatus, ttsStatus),

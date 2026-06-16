@@ -1,12 +1,11 @@
 import { readFile } from "fs/promises";
 import path from "path";
 
-import { getDemoMockTtsAudioPath } from "@/lib/config/demo";
+import { getDemoMockTtsAudioPath, hasOpenAiApiKey } from "@/lib/config/demo";
+import { synthesizeSpeech as openaiSynthesizeSpeech } from "@/lib/tts/openai";
 import type { TtsProviderInterface, TtsSynthesisResult } from "@/types";
 
-export async function synthesizeSpeech(
-  _text: string
-): Promise<TtsSynthesisResult> {
+async function loadStaticDemoAudio(): Promise<TtsSynthesisResult> {
   const relativePath = getDemoMockTtsAudioPath();
   const filePath = path.isAbsolute(relativePath)
     ? relativePath
@@ -17,17 +16,32 @@ export async function synthesizeSpeech(
     buffer = await readFile(filePath);
   } catch {
     throw new Error(
-      `demo-tts.mp3 が見つかりません: ${relativePath}（scripts/generate-demo-tts-placeholder.mjs を実行してください）`
+      `デモ音声が見つかりません: ${relativePath}（scripts/generate-demo-tts-placeholder.mjs を実行してください）`
     );
   }
 
   const audio = new Uint8Array(buffer).buffer;
-
   const contentType = relativePath.endsWith(".wav")
     ? "audio/wav"
     : "audio/mpeg";
 
-  return { audio, contentType };
+  return {
+    audio,
+    contentType,
+    playback: "browser-speech",
+  };
+}
+
+export async function synthesizeSpeech(
+  text: string
+): Promise<TtsSynthesisResult> {
+  if (hasOpenAiApiKey()) {
+    const result = await openaiSynthesizeSpeech(text);
+    return { ...result, playback: "blob" };
+  }
+
+  void text;
+  return loadStaticDemoAudio();
 }
 
 export const mockTtsProvider: TtsProviderInterface = {

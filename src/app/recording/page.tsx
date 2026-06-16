@@ -1,14 +1,12 @@
-"use client";
-
 import { ExperienceShell } from "@/components/layout/ExperienceShell";
 import { SessionGuard } from "@/components/layout/SessionGuard";
-import { PreviewView } from "@/components/preview/PreviewView";
+import { RecordingView } from "@/components/recording/RecordingView";
 
-export default function PreviewPage() {
+export default function RecordingPage() {
   return (
     <SessionGuard require="scriptText">
-      <ExperienceShell currentStep={4}>
-        <PreviewView />
+      <ExperienceShell currentStep={5}>
+        <RecordingView />
       </ExperienceShell>
     </SessionGuard>
   );

@@ -6,8 +6,8 @@ import { ResultView } from "@/components/result/ResultView";
 
 export default function ResultPage() {
   return (
-    <SessionGuard require="resultReady">
-      <ExperienceShell currentStep={5}>
+    <SessionGuard require="userVoiceVideoBlob">
+      <ExperienceShell currentStep={6}>
         <ResultView />
       </ExperienceShell>
     </SessionGuard>

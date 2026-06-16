@@ -16,10 +16,15 @@ export async function POST(request: Request) {
       );
     }
 
-    const { audio, contentType } = await synthesizeSpeech(result.data.text);
+    const { audio, contentType, playback } = await synthesizeSpeech(result.data.text);
 
     return new Response(audio, {
-      headers: { "Content-Type": contentType },
+      headers: {
+        "Content-Type": contentType,
+        ...(playback === "browser-speech"
+          ? { "X-Tts-Playback": "browser-speech" }
+          : {}),
+      },
     });
   } catch (error) {
     console.error("[api/tts]", error);

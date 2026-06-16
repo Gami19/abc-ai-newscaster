@@ -3,7 +3,7 @@
 import { useEffect, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 
-import { isResultReady, useSessionStore } from "@/lib/store/useSessionStore";
+import { useSessionStore } from "@/lib/store/useSessionStore";
 import type { SessionGuardField } from "@/types";
 
 type SessionGuardProps = {
@@ -20,10 +20,8 @@ function useGuardAllowed(require: SessionGuardField): boolean {
         return state.photoBase64 !== null;
       case "scriptText":
         return state.scriptText !== null;
-      case "videoBlob":
-        return state.videoBlob !== null;
-      case "resultReady":
-        return isResultReady(state);
+      case "userVoiceVideoBlob":
+        return state.userVoiceVideoBlob !== null;
     }
   });
 }

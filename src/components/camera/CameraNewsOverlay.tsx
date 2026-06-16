@@ -6,10 +6,7 @@ export function CameraNewsOverlay() {
     >
       <div className="bg-abc-orange/80 px-4 py-2 text-center">
         <p className="text-sm font-bold tracking-wide text-white sm:text-base">
-          news おかえり 2035
-        </p>
-        <p className="text-xs font-medium text-white/90 sm:text-sm">
-          キャスター席
+          news おかえり 2035 キャスター席
         </p>
       </div>
       <div className="flex-1" />
