@@ -22,6 +22,12 @@ export function validateDreamOrHobby(value: string, label: string): string | und
   return undefined;
 }
 
+export function validateEffort(value: string): string | undefined {
+  if (value.length < 1) return "がんばっていることを入れてね";
+  if (value.length > 20) return "20文字以内で入れてね";
+  return undefined;
+}
+
 export function validateGrade(grade: string): string | undefined {
   if (!GRADES.includes(grade as (typeof GRADES)[number])) {
     return "学年を選んでね";
@@ -44,6 +50,9 @@ export function validateUserInput(input: UserInput): ValidationResult<UserInput>
   const hobbyError = validateDreamOrHobby(input.hobby, "好きなこと");
   if (hobbyError) errors.hobby = hobbyError;
 
+  const effortError = validateEffort(input.effort);
+  if (effortError) errors.effort = effortError;
+
   if (Object.keys(errors).length > 0) {
     return { success: false, errors };
   }
@@ -62,18 +71,19 @@ export function validateGenerateBody(
     return { success: false, errors: {} };
   }
 
-  const { name, grade, dream, hobby } = body as Record<string, unknown>;
+  const { name, grade, dream, hobby, effort } = body as Record<string, unknown>;
 
   if (
     !isNonEmptyString(name) ||
     !isNonEmptyString(grade) ||
     !isNonEmptyString(dream) ||
-    !isNonEmptyString(hobby)
+    !isNonEmptyString(hobby) ||
+    !isNonEmptyString(effort)
   ) {
     return { success: false, errors: {} };
   }
 
-  return validateUserInput({ name, grade, dream, hobby });
+  return validateUserInput({ name, grade, dream, hobby, effort });
 }
 
 export function validateTtsBody(body: unknown): ValidationResult<{ text: string }> {

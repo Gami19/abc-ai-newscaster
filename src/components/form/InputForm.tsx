@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import {
   isUserInputValid,
   validateDreamOrHobby,
+  validateEffort,
   validateGrade,
   validateName,
   validateUserInput,
@@ -25,6 +26,7 @@ const emptyForm: UserInput & { grade: GradeValue | "" } = {
   grade: "",
   dream: "",
   hobby: "",
+  effort: "",
 };
 
 export function InputForm() {
@@ -40,6 +42,7 @@ export function InputForm() {
       grade: form.grade,
       dream: form.dream,
       hobby: form.hobby,
+      effort: form.effort,
     });
   }, [form]);
 
@@ -69,6 +72,11 @@ export function InputForm() {
         ? validateDreamOrHobby(next.hobby, "好きなこと")
         : undefined;
     }
+    if (key === "effort") {
+      nextErrors.effort = next.effort
+        ? validateEffort(next.effort)
+        : undefined;
+    }
 
     setErrors(nextErrors);
   };
@@ -84,6 +92,7 @@ export function InputForm() {
       grade: form.grade,
       dream: form.dream,
       hobby: form.hobby,
+      effort: form.effort,
     };
 
     const result = validateUserInput(payload);
@@ -165,6 +174,23 @@ export function InputForm() {
             />
             {errors.hobby ? (
               <p className="text-sm text-abc-red">{errors.hobby}</p>
+            ) : null}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="effort" className="text-base text-abc-charcoal">
+              がんばっていること
+            </Label>
+            <Input
+              id="effort"
+              value={form.effort}
+              onChange={(e) => updateField("effort", e.target.value)}
+              placeholder="例：まいにちのドリブル練習"
+              className="h-12 text-lg"
+              aria-invalid={Boolean(errors.effort)}
+            />
+            {errors.effort ? (
+              <p className="text-sm text-abc-red">{errors.effort}</p>
             ) : null}
           </div>
 
