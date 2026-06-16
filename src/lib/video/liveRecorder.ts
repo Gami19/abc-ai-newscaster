@@ -1,10 +1,14 @@
-import type { RefObject } from "react";
+import type { MutableRefObject, RefObject } from "react";
 
-import type { DrawFrameCallback } from "@/types";
 import { safePlayVideo } from "@/lib/audio/safePlay";
+import type { AudioMixer, DrawFrameCallback, NewsCanvasMode } from "@/types";
+
+import { fixRecordedWebm } from "./fixRecordedWebm";
 
 const PREFERRED_MIME = "video/webm;codecs=vp8,opus";
 const FALLBACK_MIMES = ["video/webm", "video/webm;codecs=vp9,opus", ""];
+
+const FADE_DURATION_MS = 500;
 
 function resolveMimeType(): string {
   if (typeof MediaRecorder === "undefined") {
@@ -25,17 +29,35 @@ export type StartLiveRecordingParams = {
   canvasRef: RefObject<HTMLCanvasElement | null>;
   videoStream: MediaStream;
   onFrame: DrawFrameCallback;
-  hasMicAudio: boolean;
+  audioMixer: AudioMixer;
+  soundtrackDuration: number;
+  canvasModeRef: MutableRefObject<NewsCanvasMode>;
+  fadeStartTimeRef: MutableRefObject<number | null>;
+  onIntroEnd: () => void;
+};
+
+export type LiveRecordingResult = {
+  blob: Blob;
+  durationMs: number;
 };
 
 export type LiveRecordingHandle = {
-  stop: () => Promise<Blob>;
+  stop: () => Promise<LiveRecordingResult>;
 };
 
 export function startLiveRecording(
   params: StartLiveRecordingParams
 ): LiveRecordingHandle {
-  const { canvasRef, videoStream, onFrame, hasMicAudio } = params;
+  const {
+    canvasRef,
+    videoStream,
+    onFrame,
+    audioMixer,
+    soundtrackDuration,
+    canvasModeRef,
+    fadeStartTimeRef,
+    onIntroEnd,
+  } = params;
 
   const canvas = canvasRef.current;
   if (!canvas) {
@@ -56,17 +78,32 @@ export function startLiveRecording(
   let rafId: number | null = null;
   let recorder: MediaRecorder | null = null;
   let stopped = false;
+  let introEndTimer: ReturnType<typeof setTimeout> | null = null;
+  let fadeCompleteTimer: ReturnType<typeof setTimeout> | null = null;
+  let recordingStartedAt = 0;
 
   const mimeType = resolveMimeType();
+
+  canvasModeRef.current = "intro";
+  fadeStartTimeRef.current = null;
+
+  const clearIntroTimers = () => {
+    if (introEndTimer !== null) {
+      clearTimeout(introEndTimer);
+      introEndTimer = null;
+    }
+    if (fadeCompleteTimer !== null) {
+      clearTimeout(fadeCompleteTimer);
+      fadeCompleteTimer = null;
+    }
+  };
 
   const startPromise = safePlayVideo(videoEl).then(() => {
     const canvasStream = canvas.captureStream(30);
     const tracks: MediaStreamTrack[] = [...canvasStream.getVideoTracks()];
 
-    if (hasMicAudio) {
-      const micTracks = videoStream.getAudioTracks();
-      tracks.push(...micTracks);
-    }
+    const mixerTracks = audioMixer.stream.getAudioTracks();
+    tracks.push(...mixerTracks);
 
     const combinedStream = new MediaStream(tracks);
     recorder = mimeType
@@ -79,7 +116,20 @@ export function startLiveRecording(
       }
     };
 
-    recorder.start(100);
+    recordingStartedAt = performance.now();
+    recorder.start();
+    audioMixer.startSoundtrack();
+
+    introEndTimer = setTimeout(() => {
+      audioMixer.fadeToMic(FADE_DURATION_MS / 1000);
+      canvasModeRef.current = "fade";
+      fadeStartTimeRef.current = performance.now();
+
+      fadeCompleteTimer = setTimeout(() => {
+        canvasModeRef.current = "live";
+        onIntroEnd();
+      }, FADE_DURATION_MS);
+    }, soundtrackDuration * 1000);
 
     const loop = () => {
       if (stopped) return;
@@ -91,10 +141,12 @@ export function startLiveRecording(
 
   return {
     stop: () =>
-      new Promise<Blob>((resolve, reject) => {
+      new Promise<LiveRecordingResult>((resolve, reject) => {
         void startPromise
           .then(() => {
             stopped = true;
+            clearIntroTimers();
+
             if (rafId !== null) {
               cancelAnimationFrame(rafId);
             }
@@ -105,10 +157,21 @@ export function startLiveRecording(
             }
 
             recorder.onstop = () => {
-              const type = mimeType || "video/webm";
-              resolve(new Blob(chunks, { type }));
+              void (async () => {
+                const type = mimeType || "video/webm";
+                const rawBlob = new Blob(chunks, { type });
+                const durationMs =
+                  recordingStartedAt > 0
+                    ? performance.now() - recordingStartedAt
+                    : 0;
+                const blob = await fixRecordedWebm(rawBlob, durationMs);
+                resolve({ blob, durationMs });
+              })();
             };
 
+            if (recorder.state === "recording") {
+              recorder.requestData();
+            }
             recorder.stop();
           })
           .catch(reject);

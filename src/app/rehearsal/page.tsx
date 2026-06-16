@@ -5,7 +5,7 @@ import { RehearsalView } from "@/components/rehearsal/RehearsalView";
 export default function RehearsalPage() {
   return (
     <SessionGuard require="scriptText">
-      <ExperienceShell currentStep={4}>
+      <ExperienceShell currentStep={4} contentMaxWidth="xl">
         <RehearsalView />
       </ExperienceShell>
     </SessionGuard>

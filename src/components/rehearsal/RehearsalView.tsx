@@ -73,7 +73,7 @@ export function RehearsalView() {
         </p>
       ) : null}
 
-      <div className="mx-auto max-w-lg">
+      <div className="w-full">
         <NewsCanvas
           ref={canvasRef}
           mode="static"

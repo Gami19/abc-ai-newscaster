@@ -14,13 +14,22 @@ import {
   seededRandom,
   type DreamTheme,
 } from "@/lib/theme/dreamTheme";
+import { renderFadeFrame, renderIntroFrame } from "@/lib/canvas/introFrame";
+import { drawNewsHeader, NEWS_HEADER_HEIGHT } from "@/lib/canvas/newsHeader";
+import {
+  clamp,
+} from "@/lib/utils/easing";
 import { safePlayVideo, stopVideoElement } from "@/lib/audio/safePlay";
-import type { DrawFrameCallback, DreamCategory } from "@/types";
+import type {
+  DrawFrameCallback,
+  DreamCategory,
+  NewsCanvasMode,
+} from "@/types";
+import type { MutableRefObject } from "react";
 
 const CANVAS_WIDTH = 1280;
 const CANVAS_HEIGHT = 720;
 
-const HEADER_HEIGHT = 90;
 const TELOP_HEIGHT = 140;
 const TELOP_Y = CANVAS_HEIGHT - TELOP_HEIGHT;
 const MAIN_CONTENT_MARGIN = 16;
@@ -37,33 +46,29 @@ const NAME_PLATE_Y = PHOTO_Y + PHOTO_SIZE + 16;
 const PHOTO_RADIUS = 28;
 
 const TELOP_MARGIN = 0;
+const INTRO_NEWS_ICON_SRC = "/intro/news-icon.png";
 
-const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"] as const;
-
-type NewsCanvasProps = {
+export interface NewsCanvasProps {
   scriptText: string;
   userName: string;
   dreamCategory: DreamCategory;
   dreamText?: string;
-  mode?: "static" | "live";
+  mode?: NewsCanvasMode;
   photoBase64?: string;
   videoStream?: MediaStream | null;
   enablePreviewLoop?: boolean;
   onReady?: (blob: Blob) => void;
-};
+  canvasModeRef?: MutableRefObject<NewsCanvasMode>;
+  introStartTimeRef?: MutableRefObject<number | null>;
+  fadeStartTimeRef?: MutableRefObject<number | null>;
+  newsIconImageRef?: MutableRefObject<HTMLImageElement | null>;
+  onNewsIconReady?: () => void;
+}
 
 export type NewsCanvasHandle = {
   getCanvas: () => HTMLCanvasElement | null;
   getDrawFrameCallback: () => DrawFrameCallback | null;
 };
-
-function formatHeaderDateTime(): string {
-  const now = new Date();
-  const weekday = WEEKDAYS[now.getDay()];
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `2035.${month}.${day}（${weekday}）18:00`;
-}
 
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -253,7 +258,7 @@ function drawDreamDecorations(
   const rand = seededRandom(seed);
   const subIconXMin = 420;
   const subIconXMax = 1180;
-  const subIconYMin = HEADER_HEIGHT + 8;
+  const subIconYMin = NEWS_HEADER_HEIGHT + 8;
   const subIconYMax = MAIN_BOTTOM - 8;
   ctx.font = "60px serif";
   ctx.textAlign = "center";
@@ -367,49 +372,6 @@ function drawNamePlate(
   );
 }
 
-function drawHeader(ctx: CanvasRenderingContext2D) {
-  const gradient = ctx.createLinearGradient(0, 0, CANVAS_WIDTH, 0);
-  gradient.addColorStop(0, "#FF8C00");
-  gradient.addColorStop(1, "#FF6000");
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, CANVAS_WIDTH, HEADER_HEIGHT);
-
-  ctx.fillStyle = "#FFFFFF";
-  ctx.textAlign = "left";
-  ctx.textBaseline = "middle";
-  ctx.font = "bold 18px sans-serif";
-  ctx.fillText("ABC", 24, 36);
-  ctx.font = "bold 32px sans-serif";
-  ctx.fillText("news おかえり 2035", 24, 62);
-
-  const liveX = CANVAS_WIDTH / 2;
-  ctx.beginPath();
-  ctx.arc(liveX - 36, HEADER_HEIGHT / 2, 10, 0, Math.PI * 2);
-  ctx.fillStyle = "#FF4500";
-  ctx.fill();
-  ctx.fillStyle = "#FFFFFF";
-  ctx.font = "bold 26px sans-serif";
-  ctx.textAlign = "left";
-  ctx.fillText("LIVE", liveX - 20, HEADER_HEIGHT / 2);
-
-  ctx.save();
-  ctx.fillStyle = "#FFFFFF";
-  ctx.font = "bold 24px sans-serif";
-  ctx.textAlign = "right";
-  ctx.textBaseline = "middle";
-  ctx.shadowColor = "rgba(0, 0, 0, 0.35)";
-  ctx.shadowBlur = 4;
-  ctx.fillText(formatHeaderDateTime(), CANVAS_WIDTH - 24, HEADER_HEIGHT / 2);
-  ctx.restore();
-
-  ctx.strokeStyle = "#FFFFFF";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(0, HEADER_HEIGHT);
-  ctx.lineTo(CANVAS_WIDTH, HEADER_HEIGHT);
-  ctx.stroke();
-}
-
 function drawTelop(
   ctx: CanvasRenderingContext2D,
   scriptText: string,
@@ -496,7 +458,7 @@ function renderLiveFrame(
     drawFaceFrame(ctx, video, true);
   }
   drawNamePlate(ctx, userName, theme.accentColor);
-  drawHeader(ctx);
+  drawNewsHeader(ctx);
   drawTelopPreview(ctx, scriptText, theme.accentColor);
 }
 
@@ -521,7 +483,7 @@ async function composeStaticCanvas(
   drawDreamDecorations(ctx, theme, `${dreamCategory}-${userName}`);
   drawFaceFrame(ctx, photo);
   drawNamePlate(ctx, userName, theme.accentColor);
-  drawHeader(ctx);
+  drawNewsHeader(ctx);
   drawTelop(ctx, scriptText, theme.accentColor);
 
   return new Promise((resolve, reject) => {
@@ -548,6 +510,11 @@ export const NewsCanvas = forwardRef<NewsCanvasHandle, NewsCanvasProps>(
       videoStream,
       enablePreviewLoop = true,
       onReady,
+      canvasModeRef,
+      introStartTimeRef,
+      fadeStartTimeRef,
+      newsIconImageRef,
+      onNewsIconReady,
     },
     ref
   ) {
@@ -561,9 +528,71 @@ export const NewsCanvas = forwardRef<NewsCanvasHandle, NewsCanvasProps>(
 
     const getDrawFrameCallback = useCallback((): DrawFrameCallback | null => {
       return (ctx, video) => {
+        const drawMode = canvasModeRef?.current ?? "live";
+
+        if (
+          drawMode === "intro" &&
+          introStartTimeRef?.current != null
+        ) {
+          const elapsed =
+            (performance.now() - introStartTimeRef.current) / 1000;
+          renderIntroFrame(
+            ctx,
+            elapsed,
+            userName,
+            newsIconImageRef?.current ?? null
+          );
+          return;
+        }
+
+        if (drawMode === "fade" && fadeStartTimeRef?.current != null) {
+          const progress = clamp(
+            (performance.now() - fadeStartTimeRef.current) / 500,
+            0,
+            1
+          );
+          renderFadeFrame(ctx, progress, () => {
+            renderLiveFrame(ctx, video, theme, seed, userName, scriptText);
+          });
+          return;
+        }
+
         renderLiveFrame(ctx, video, theme, seed, userName, scriptText);
       };
-    }, [theme, seed, userName, scriptText]);
+    }, [
+      canvasModeRef,
+      fadeStartTimeRef,
+      introStartTimeRef,
+      newsIconImageRef,
+      scriptText,
+      seed,
+      theme,
+      userName,
+    ]);
+
+    useEffect(() => {
+      if (onNewsIconReady && newsIconImageRef?.current) {
+        onNewsIconReady();
+        return;
+      }
+
+      const image = new Image();
+      image.onload = () => {
+        if (newsIconImageRef) {
+          newsIconImageRef.current = image;
+        }
+        onNewsIconReady?.();
+      };
+      image.onerror = () => {
+        console.error("[NewsCanvas] news-icon load failed");
+      };
+      image.src = INTRO_NEWS_ICON_SRC;
+
+      return () => {
+        image.onload = null;
+        image.onerror = null;
+      };
+    }, [newsIconImageRef, onNewsIconReady]);
 
     useImperativeHandle(ref, () => ({
       getCanvas: () => canvasRef.current,
